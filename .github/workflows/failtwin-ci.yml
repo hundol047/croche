@@ -1,0 +1,59 @@
+name: FailTwin CI
+
+# Lightweight CI: install, typecheck, lint, test. No secrets, no deploy.
+on:
+  push:
+    branches: [feat/failtwin-mvp, main]
+    paths:
+      - 'failtwin/**'
+      - '.github/workflows/failtwin-ci.yml'
+  pull_request:
+    paths:
+      - 'failtwin/**'
+      - '.github/workflows/failtwin-ci.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: failtwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        # Use npm ci when a committed lockfile exists; fall back to npm install
+        # (the lockfile is generated on first networked install — npm was
+        # unavailable in the dev sandbox, see README "Known limitations").
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --ci
+
+  # Pure-TS logic tests run with no app dependencies — always green even if the
+  # RN toolchain changes. Mirrors the offline verification used during dev.
+  logic-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: failtwin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install TypeScript (standalone)
+        run: npm i -g typescript@5.3.3
+      - name: Run logic test suite
+        run: npm run test:logic

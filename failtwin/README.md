@@ -182,23 +182,58 @@ failtwin/
 ```
 
 ## 14. 테스트 & 검증
-- **표준(네트워크 머신):** `npm run typecheck && npm test`
-  - 로직 테스트: Error DNA score(재발 시 증가/교정 시 감소/clamp/1회 과대평가 방지), Memory 관련
-    유형 검색, AI JSON schema validation, Trap 결과 저장, Prediction 계산, storage round-trip,
-    **Mock 전체 루프**(분석→DNA→예측→trap→결과→리포트).
+
+npm 스크립트는 모두 실제 파일을 가리킵니다: `start/android/ios/web`, `typecheck`,
+`typecheck:logic`, `test`, `test:logic`, `verify:offline`, `demo:loop`, `lint`.
+
+- **표준(네트워크 머신):** `npm install && npm run typecheck && npm run lint && npm test`
+  - 로직 테스트: Error DNA score(재발 시 증가/교정 시 감소/clamp/1회 과대평가 방지/decay/계정 분리),
+    Memory 관련 유형 검색, AI JSON schema validation, Trap 평가, Prediction 계산, storage round-trip,
+    **Mock 전체 루프**(분석→DNA→예측→trap→결과→리포트), **RealCrocheAIService(가짜 client로 happy
+    path·검증 실패 재시도·폴백·전송 오류·톤 가드)**, AI 서비스 모드/상태 폴백.
   - 컴포넌트 렌더 테스트: 주요 화면 컴포넌트 정상 렌더.
-- **오프라인 검증(이 저장소에서 수행됨):** `npm`을 쓸 수 없는 환경을 위해 `verify/`에 번들된 zod shim +
-  테스트 하네스로 순수 TS 로직을 검증합니다. `bash scripts/verify-logic.sh` → **44 passed / 0 failed**,
-  로직 typecheck clean. 자세한 내용은 [`verify/README.md`](verify/README.md).
+- **오프라인 검증(이 저장소에서 실제 수행됨):** npm 레지스트리가 차단된 환경을 위해 `verify/`에 번들된
+  zod shim + 테스트 하네스로 순수 TS 로직을 검증합니다.
+  - `npm run test:logic` (= `node scripts/run-logic-tests.js`) → **54 passed / 0 failed**.
+  - `npm run typecheck:logic` → clean.
+  - `npm run demo:loop` → 실제 도메인 엔진 + Mock으로 전체 루프를 런타임 실행하며 데이터 변화를 출력
+    (오답→분석→DNA 0→20→예측→**새** Trap 문제→Prediction HIT→교정 20→11→리포트). 코어 경험이
+    실제로 "실행"됨을 증명합니다.
+  - 자세한 내용은 [`verify/README.md`](verify/README.md).
+- **CI:** `.github/workflows/failtwin-ci.yml` — `npm ci`(lock 없으면 install)·typecheck·lint·test +
+  별도 logic-tests job. 시크릿 없음.
+
+### 검증 상태 (정직한 구분)
+| 항목 | 상태 |
+|---|---|
+| 순수 TS 로직 typecheck | ✅ 검증됨 (clean) |
+| 로직/서비스 유닛 테스트 54개 | ✅ 검증됨 (54/54 pass) |
+| 코어 루프 런타임 실행(`demo:loop`) | ✅ 검증됨 |
+| UI(.tsx) typecheck (오프라인 스텁) | ✅ 실질 0 (알려진 스텁 1건, `verify/README.md`) |
+| `npm install` / 전체 Jest / 컴포넌트 렌더 | ⏳ 미검증 — 네트워크 머신 필요(개발 샌드박스 npm 차단) |
+| Expo Web / Expo Go / 모바일 실행 | ⏳ 미검증 — 동일 사유 |
+| **Real Croche 실제 호출** | ⏳ 미검증 — 공식 Croche SDK/자격증명 부재(§9) |
 
 ## 15. 개인정보 & 안전
 - 학습 기록은 `ft:{userId}:...` 키로 네임스페이스되어 **계정 간 분리**됩니다.
 - AI는 "머리가 나쁘다 / 소질이 없다" 같은 **능력 단정 표현을 하지 않습니다**(toneGuard로 교정 톤 치환).
   실수는 교정 가능한 행동 패턴으로 설명합니다.
 - MVP의 위험도 점수는 과학적으로 검증된 확률이 아니라 **"AI 예측 점수"**로 명시 표기합니다.
+- 비밀키는 클라이언트 번들/소스/Git에 넣지 않습니다. `.env`·`.env.*`는 gitignore, `.env.example`만 추적.
+- 앱은 현재 AI 모드(Demo Mock / Real Croche / Croche 연결 안 됨)를 대시보드 배지로 **정직하게 표시**합니다.
 
-## 16. 알려진 제약 / 향후 개선
-- 본 빌드는 Croche SDK가 없는 오프라인 환경에서 작성되어 `RealCrocheAIService`의 **client 생성부만
-  TODO**로 남았습니다(§9). 그 외 모든 흐름은 Mock으로 완전 동작합니다.
-- 향후: 실제 Croche LLM/Memory 연동, Croche Studio 지표 계측(latency/token/cost) 대시보드, 과목·문제
-  뱅크 확장, 실수 유형 자동 발견(AI 확장 Error Type), 서버 동기화/멀티 디바이스, 접근성 추가 개선.
+## 16. Croche 연동 상태 (정직)
+- 개발 환경에서 **공식 "Croche" AI 런타임/SDK/문서를 확인할 수 없었습니다**: npm 레지스트리 403 차단,
+  로컬 SDK 아티팩트 없음, 공개 공식 문서 없음, 조직자 제공 자격증명/엔드포인트 없음.
+- 따라서 **존재하지 않는 Croche 심볼을 지어내지 않았고**, Real 연동의 유일한 미구현 지점은
+  `src/services/croche/client.ts`의 `createCrocheClient()` **클라이언트 생성부(명시적 TODO)** 뿐입니다.
+- `RealCrocheAIService`는 프롬프트 구성·모델 티어 선택·관련 Memory만 context 주입·Zod 검증·검증 실패
+  재시도·톤 가드까지 완성되어 있고, **가짜 client로 end-to-end 테스트까지 통과**했습니다(§14). 조직자가
+  공식 SDK/엔드포인트를 제공하면 그 파일 한 곳만 채우면 Real 모드가 즉시 동작합니다.
+
+## 17. 알려진 제약 / 향후 개선
+- 위 §16의 Croche 클라이언트 TODO. 그 외 모든 흐름은 Mock으로 완전 동작하며 런타임 검증됨.
+- `npm install`/Expo 런타임/Expo Web/모바일은 개발 샌드박스 네트워크 제약으로 **미검증** — 네트워크
+  머신에서 §6의 명령으로 실행·검증 필요.
+- 향후: 실제 Croche LLM/Memory/Tool/Session 연동, Croche Studio 지표 계측(latency/token/cost) 대시보드,
+  과목·문제 뱅크 확장, 실수 유형 자동 발견(AI 확장 Error Type), 서버 동기화/멀티 디바이스, 접근성 개선.

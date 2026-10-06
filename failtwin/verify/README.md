@@ -14,18 +14,26 @@
   `tsc` + `node`. The same files run unchanged under real Jest.
 - `preload.js` — a node `require` hook mapping the `@/*` path alias and `zod`
   to the compiled output / shim at runtime.
+- `demo-loop.ts` — runs the REAL domain engine + MockCrocheAIService through the
+  full learning journey and prints the data changes (proves the core loop
+  executes at runtime, not just assertions). `npm run demo:loop`.
 - `*.d.ts` + `tsconfig.*.json` — ambient stubs for the React Native / Expo
   surface so the `.tsx` layer type-checks without `node_modules`.
 
 ## Run it
 ```bash
-bash scripts/verify-logic.sh          # logic typecheck + unit tests
+npm run test:logic                    # compile + run logic/service unit tests
+npm run typecheck:logic               # logic-layer typecheck
+npm run demo:loop                     # runtime demo of the full core loop
+bash scripts/verify-logic.sh          # (equivalent) logic typecheck + tests
 tsc -p verify/tsconfig.ui.json        # UI (.tsx) typecheck with offline stubs
 ```
 
 ## Results on this machine
 - **Logic typecheck:** clean (0 errors).
-- **Unit tests:** 44 passed / 0 failed.
+- **Unit tests:** 54 passed / 0 failed (domain + storage + Mock loop +
+  RealCrocheAIService-with-fake-client + service status/fallback).
+- **Runtime demo loop:** executes end-to-end successfully.
 - **UI typecheck:** 0 real errors. **1 residual error** at
   `src/state/AppContext.tsx:102` is a known limitation of the hand-rolled React
   `createContext` type stub (automatic-JSX-runtime generic inference), **not** a
