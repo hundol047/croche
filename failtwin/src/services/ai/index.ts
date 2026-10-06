@@ -10,6 +10,21 @@ export function resolveMode(): CrocheMode {
   return env === 'real' ? 'real' : 'mock';
 }
 
+/**
+ * Honest, judge-facing status of the AI backend. Distinguishes:
+ *  - 'mock'            : running the deterministic Mock (dev / offline demo)
+ *  - 'real'            : connected to a real Croche client
+ *  - 'real-unavailable': configured for real but no client → fell back to Mock
+ * The UI shows this so Mock is NEVER presented as real Croche (§6).
+ */
+export type CrocheServiceStatus = 'mock' | 'real' | 'real-unavailable';
+
+let lastStatus: CrocheServiceStatus = 'mock';
+
+export function getServiceStatus(): CrocheServiceStatus {
+  return lastStatus;
+}
+
 let singleton: CrocheAIService | null = null;
 
 /**
@@ -26,17 +41,22 @@ export function getAIService(mode: CrocheMode = resolveMode()): CrocheAIService 
   if (mode === 'real') {
     const client = createCrocheClient();
     if (client) {
+      lastStatus = 'real';
       singleton = new RealCrocheAIService(client);
       return singleton;
     }
     // Configured for real but no client available → fall back to mock so the
-    // app still runs. (Logged for the developer.)
+    // app still runs. (Logged for the developer; surfaced honestly in the UI.)
+    lastStatus = 'real-unavailable';
     // eslint-disable-next-line no-console
     console.warn(
       '[FailTwin] CROCHE_MODE=real but no Croche client configured. Falling back to MockCrocheAIService.',
     );
+    singleton = new MockCrocheAIService();
+    return singleton;
   }
 
+  lastStatus = 'mock';
   singleton = new MockCrocheAIService();
   return singleton;
 }
@@ -44,6 +64,7 @@ export function getAIService(mode: CrocheMode = resolveMode()): CrocheAIService 
 /** Test hook. */
 export function setAIService(svc: CrocheAIService | null): void {
   singleton = svc;
+  if (svc) lastStatus = svc.kind;
 }
 
 export type { CrocheAIService } from './CrocheAIService';

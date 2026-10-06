@@ -32,31 +32,41 @@ import { Err } from '@/utils/result';
  * class is fully functional and the app behaves identically — just backed by a
  * real model instead of the deterministic mock.
  */
+export interface RealServiceOptions {
+  /** How many times to re-ask the model when its JSON fails Zod validation. */
+  maxValidationRetries?: number;
+}
+
 export class RealCrocheAIService implements CrocheAIService {
   readonly kind = 'real' as const;
-  constructor(private client: CrocheClient) {}
+  private maxRetries: number;
+
+  constructor(private client: CrocheClient, opts: RealServiceOptions = {}) {
+    this.maxRetries = Math.max(0, opts.maxValidationRetries ?? 1);
+  }
 
   async analyzeMistake(input: AnalyzeInput): Promise<Result<MistakeAnalysis>> {
-    const raw = await this.safeComplete({
-      model: modelForTask('analyze_mistake'),
-      system: SYS_ANALYZE,
-      user: JSON.stringify({
-        problem: {
-          subject: input.problem.subject,
-          topic: input.problem.topic,
-          prompt: input.problem.prompt,
-          correctAnswer: input.problem.correctAnswer,
-          explanation: input.problem.explanation,
-          targetErrorType: input.problem.targetErrorType,
-        },
-        answer: input.attempt.userAnswer,
-        reasoning: input.attempt.userReasoning ?? '',
-        confidence: input.attempt.confidence,
-      }),
-      context: input.relevantMemories.map(memoryLine),
-    });
-    if (!raw.ok) return raw;
-    const v = validateMistakeAnalysis(raw.value);
+    const v = await this.completeValidated(
+      {
+        model: modelForTask('analyze_mistake'),
+        system: SYS_ANALYZE,
+        user: JSON.stringify({
+          problem: {
+            subject: input.problem.subject,
+            topic: input.problem.topic,
+            prompt: input.problem.prompt,
+            correctAnswer: input.problem.correctAnswer,
+            explanation: input.problem.explanation,
+            targetErrorType: input.problem.targetErrorType,
+          },
+          answer: input.attempt.userAnswer,
+          reasoning: input.attempt.userReasoning ?? '',
+          confidence: input.attempt.confidence,
+        }),
+        context: input.relevantMemories.map(memoryLine),
+      },
+      validateMistakeAnalysis,
+    );
     if (!v.ok) return v;
     return {
       ok: true,
@@ -65,44 +75,73 @@ export class RealCrocheAIService implements CrocheAIService {
   }
 
   async predictNextMistake(input: PredictInput): Promise<Result<Prediction>> {
-    const raw = await this.safeComplete({
-      model: modelForTask('predict_mistake'),
-      system: SYS_PREDICT,
-      user: JSON.stringify({ subject: input.subject, topic: input.topic }),
-      context: input.relevantMemories.map(memoryLine),
-    });
-    if (!raw.ok) return raw;
-    const v = validatePrediction(raw.value);
+    const v = await this.completeValidated(
+      {
+        model: modelForTask('predict_mistake'),
+        system: SYS_PREDICT,
+        user: JSON.stringify({ subject: input.subject, topic: input.topic }),
+        context: input.relevantMemories.map(memoryLine),
+      },
+      validatePrediction,
+    );
     if (!v.ok) return v;
     return { ok: true, value: sanitizeStrings(v.value, ['reason', 'relatedMemories']) };
   }
 
   async generateTrapProblem(input: TrapInput): Promise<Result<TrapProblem>> {
-    const raw = await this.safeComplete({
-      model: modelForTask('generate_trap'),
-      system: SYS_TRAP,
-      user: JSON.stringify({
-        targetErrorType: input.targetErrorType,
-        subject: input.subject,
-        avoidTopics: input.recentTopics,
-      }),
-      context: input.relevantMemories.map(memoryLine),
-    });
-    if (!raw.ok) return raw;
-    const v = validateTrapProblem(raw.value);
+    const v = await this.completeValidated(
+      {
+        model: modelForTask('generate_trap'),
+        system: SYS_TRAP,
+        user: JSON.stringify({
+          targetErrorType: input.targetErrorType,
+          subject: input.subject,
+          avoidTopics: input.recentTopics,
+        }),
+        context: input.relevantMemories.map(memoryLine),
+      },
+      validateTrapProblem,
+    );
     if (!v.ok) return v;
     return { ok: true, value: sanitizeStrings(v.value, ['explanation', 'trapExplanation']) };
   }
 
   async generateProblem(input: GenProblemInput): Promise<Result<Problem>> {
-    const raw = await this.safeComplete({
-      model: modelForTask('generate_problem'),
-      system: SYS_GEN,
-      user: JSON.stringify(input),
-      context: [],
-    });
-    if (!raw.ok) return raw;
-    return validateProblem(raw.value);
+    return this.completeValidated(
+      {
+        model: modelForTask('generate_problem'),
+        system: SYS_GEN,
+        user: JSON.stringify(input),
+        context: [],
+      },
+      validateProblem,
+    );
+  }
+
+  /**
+   * Call the client, validate with Zod, and — if validation fails — re-ask the
+   * model up to `maxRetries` times with a repair hint. On persistent failure or
+   * a transport error, returns a Result.err so the caller shows a fallback UI
+   * (never crashes, never fabricates success).
+   */
+  private async completeValidated<T>(
+    args: { model: string; system: string; user: string; context: string[] },
+    validate: (data: unknown) => Result<T>,
+  ): Promise<Result<T>> {
+    let lastError = 'invalid AI response';
+    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      const user =
+        attempt === 0
+          ? args.user
+          : `${args.user}\n\n[재요청] 직전 응답이 스키마 검증에 실패했습니다(${lastError}). 지정된 JSON 스키마에 정확히 맞는 JSON만 다시 출력하라.`;
+
+      const raw = await this.safeComplete({ ...args, user });
+      if (!raw.ok) return raw; // transport/SDK error — do not retry blindly
+      const v = validate(raw.value);
+      if (v.ok) return v;
+      lastError = v.error;
+    }
+    return Err(lastError);
   }
 
   private async safeComplete(args: {

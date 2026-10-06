@@ -24,5 +24,7 @@ import '../__tests__/report.test';
 import '../__tests__/storage.test';
 import '../__tests__/trapEval.test';
 import '../__tests__/mockLoop.test';
+import '../__tests__/realService.test';
+import '../__tests__/serviceStatus.test';
 
 void run();
