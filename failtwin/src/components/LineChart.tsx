@@ -1,6 +1,5 @@
-import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Polyline, Circle, Line as SvgLine, Text as SvgText } from 'react-native-svg';
+import Svg, { Polyline, Circle, Line as SvgLine, Text as SvgText, G } from 'react-native-svg';
 import { colors, spacing, typography } from '@/constants/theme';
 import type { WeeklyRecurrence } from '@/domain/types';
 
@@ -48,24 +47,24 @@ export function LineChart({ data, width = 300, height = 160 }: LineChartProps) {
         {[0, 0.5, 1].map((g) => {
           const y = padY + innerH * (1 - g);
           return (
-            <React.Fragment key={g}>
+            <G key={`grid-${g}`}>
               <SvgLine x1={padX} y1={y} x2={w - padX} y2={y} stroke={colors.border} strokeWidth={1} />
               <SvgText x={4} y={y + 4} fontSize={10} fill={colors.textFaint}>
                 {Math.round(g * 100)}
               </SvgText>
-            </React.Fragment>
+            </G>
           );
         })}
 
         <Polyline points={polyline} fill="none" stroke={colors.indigo} strokeWidth={2.5} />
 
         {points.map((p, i) => (
-          <React.Fragment key={i}>
+          <G key={`pt-${i}`}>
             <Circle cx={p.x} cy={p.y} r={4} fill={colors.violet} />
             <SvgText x={p.x} y={h - 4} fontSize={10} fill={colors.textMuted} textAnchor="middle">
               {p.d.weekLabel}
             </SvgText>
-          </React.Fragment>
+          </G>
         ))}
       </Svg>
       <Text style={styles.axisNote}>세로축: 실수 재발률 (%)</Text>

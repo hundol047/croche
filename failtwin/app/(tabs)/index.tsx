@@ -49,7 +49,7 @@ export default function Home() {
       {/* 오늘의 학습 진단 */}
       <Card>
         <SectionTitle
-          right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : undefined}
+          right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : null}
         >
           오늘의 학습 진단
         </SectionTitle>
