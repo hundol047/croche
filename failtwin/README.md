@@ -70,6 +70,16 @@ npm run android             # Android
 npm run ios                 # iOS
 ```
 
+### 네트워크 머신 전체 QA (한 번에)
+개발 샌드박스는 npm 레지스트리가 차단되어 `npm install`/Expo 실행/브라우저 QA를 **수행하지 못했습니다**
+(아래 §14 검증 상태 표 참고). 인터넷이 되는 머신에서 아래 한 줄이면 설치→typecheck→lint→전체 테스트→
+런타임 데모까지 자동 수행하고, `--web`을 붙이면 Expo Web을 띄워 수동 시각 QA 체크리스트까지 안내합니다.
+```bash
+cd failtwin
+bash scripts/qa-networked.sh          # install + typecheck + lint + test + demo
+bash scripts/qa-networked.sh --web    # 위 + Expo Web 실행(브라우저 시각 QA)
+```
+
 ### 웹 실행 (PC 브라우저 시연)
 ```bash
 npm run web                 # Expo Web — 심사위원이 브라우저에서 바로 시연 가능
