@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Polyline, Circle, Line as SvgLine, Text as SvgText, G } from 'react-native-svg';
+import Svg, { Polyline, Circle, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 import { colors, spacing, typography } from '@/constants/theme';
 import type { WeeklyRecurrence } from '@/domain/types';
 
@@ -43,28 +43,46 @@ export function LineChart({ data, width = 300, height = 160 }: LineChartProps) {
   return (
     <View>
       <Svg width={w} height={h}>
-        {/* gridlines at 0, 50, 100% */}
+        {/* gridlines at 0, 50, 100% — flat keyed siblings (no Fragment/G wrapper) */}
         {[0, 0.5, 1].map((g) => {
           const y = padY + innerH * (1 - g);
           return (
-            <G key={`grid-${g}`}>
-              <SvgLine x1={padX} y1={y} x2={w - padX} y2={y} stroke={colors.border} strokeWidth={1} />
-              <SvgText x={4} y={y + 4} fontSize={10} fill={colors.textFaint}>
-                {Math.round(g * 100)}
-              </SvgText>
-            </G>
+            <SvgLine
+              key={`grid-line-${g}`}
+              x1={padX}
+              y1={y}
+              x2={w - padX}
+              y2={y}
+              stroke={colors.border}
+              strokeWidth={1}
+            />
+          );
+        })}
+        {[0, 0.5, 1].map((g) => {
+          const y = padY + innerH * (1 - g);
+          return (
+            <SvgText key={`grid-label-${g}`} x={4} y={y + 4} fontSize={10} fill={colors.textFaint}>
+              {Math.round(g * 100)}
+            </SvgText>
           );
         })}
 
         <Polyline points={polyline} fill="none" stroke={colors.indigo} strokeWidth={2.5} />
 
         {points.map((p, i) => (
-          <G key={`pt-${i}`}>
-            <Circle cx={p.x} cy={p.y} r={4} fill={colors.violet} />
-            <SvgText x={p.x} y={h - 4} fontSize={10} fill={colors.textMuted} textAnchor="middle">
-              {p.d.weekLabel}
-            </SvgText>
-          </G>
+          <Circle key={`pt-dot-${i}`} cx={p.x} cy={p.y} r={4} fill={colors.violet} />
+        ))}
+        {points.map((p, i) => (
+          <SvgText
+            key={`pt-label-${i}`}
+            x={p.x}
+            y={h - 4}
+            fontSize={10}
+            fill={colors.textMuted}
+            textAnchor="middle"
+          >
+            {p.d.weekLabel}
+          </SvgText>
         ))}
       </Svg>
       <Text style={styles.axisNote}>세로축: 실수 재발률 (%)</Text>

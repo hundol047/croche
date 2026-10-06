@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  type Context,
+} from 'react';
 import { makeRepositories, type Repositories } from '@/storage/repositories';
 import { getAIService, type CrocheAIService } from '@/services/ai';
 import { ToolRunner } from '@/services/ai/tools';
@@ -18,7 +26,9 @@ interface AppState {
   resetAll: () => Promise<void>;
 }
 
-const AppCtx = createContext<AppState | null>(null);
+// Explicitly typed so the generic can never collapse to `{}` under a mixed
+// @types/react resolution. useContext(AppCtx) is then always AppState | null.
+const AppCtx: Context<AppState | null> = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const repos = useMemo(() => makeRepositories(), []);
