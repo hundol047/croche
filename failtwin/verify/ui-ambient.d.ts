@@ -26,7 +26,7 @@ declare namespace React {
     Consumer: (props: { children: (v: T) => ReactNode }) => JSX.Element;
   }
   function createContext<T>(def: T): Context<T>;
-  function useContext<T>(ctx: unknown): T;
+  function useContext<T>(ctx: Context<T>): T;
   function useState<S>(initial: S | (() => S)): [S, (v: S | ((p: S) => S)) => void];
   function useEffect(fn: () => void | (() => void), deps?: unknown[]): void;
   function useMemo<T>(fn: () => T, deps: unknown[]): T;
@@ -118,6 +118,7 @@ declare module 'react-native-svg' {
   export const Defs: Comp;
   export const LinearGradient: Comp;
   export const Stop: Comp;
+  export const G: Comp;
 }
 
 declare module 'expo-router' {
