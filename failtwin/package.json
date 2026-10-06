@@ -10,9 +10,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "typecheck:logic": "tsc -p tsconfig.logic.json --noEmit",
+    "typecheck:logic": "tsc -p verify/tsconfig.verify.json --noEmit",
     "test": "jest",
-    "test:logic": "ts-node --project tsconfig.logic.json scripts/run-logic-tests.ts",
+    "test:logic": "node scripts/run-logic-tests.js",
+    "verify:offline": "bash scripts/verify-logic.sh",
+    "demo:loop": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js .verify-out/verify/demo-loop.js",
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
@@ -35,6 +37,8 @@
     "@babel/core": "^7.24.0",
     "@types/jest": "^29.5.12",
     "@types/react": "~18.2.79",
+    "eslint": "^8.57.0",
+    "eslint-config-expo": "~7.1.2",
     "jest": "^29.7.0",
     "jest-expo": "~51.0.0",
     "react-test-renderer": "18.2.0",
