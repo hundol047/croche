@@ -13,6 +13,8 @@ import { PredictionCard } from '@/components/PredictionCard';
 import { TrapCard } from '@/components/TrapCard';
 import { InsightCard } from '@/components/InsightCard';
 import { LineChart } from '@/components/LineChart';
+import { ModeBadge } from '@/components/ModeBadge';
+import { EmptyState } from '@/components/EmptyState';
 import type { ErrorDnaEntry, Prediction, WeeklyRecurrence } from '@/domain/types';
 
 const AT = '2026-01-10T00:00:00.000Z';
@@ -63,5 +65,18 @@ describe('component rendering', () => {
   it('renders LineChart with data and empty', () => {
     expect(renderer.create(<LineChart data={trend} />).toJSON()).toBeTruthy();
     expect(renderer.create(<LineChart data={[]} />).toJSON()).toBeTruthy();
+  });
+
+  it('renders ModeBadge for every status', () => {
+    expect(renderer.create(<ModeBadge status="mock" />).toJSON()).toBeTruthy();
+    expect(renderer.create(<ModeBadge status="real" />).toJSON()).toBeTruthy();
+    expect(renderer.create(<ModeBadge status="real-unavailable" />).toJSON()).toBeTruthy();
+  });
+
+  it('renders EmptyState with a CTA', () => {
+    const tree = renderer
+      .create(<EmptyState title="아직 Error DNA가 없어요" description="문제를 풀어보세요." ctaLabel="첫 문제 풀기" onCta={() => {}} />)
+      .toJSON();
+    expect(tree).toBeTruthy();
   });
 });

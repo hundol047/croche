@@ -12,6 +12,9 @@ import { useApp } from '@/state/AppContext';
 import { predictFromDna } from '@/domain/prediction';
 import { errorTypeLabel } from '@/domain/errorTypes';
 import { totalRisk } from '@/domain/report';
+import { ModeBadge } from '@/components/ModeBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { getServiceStatus } from '@/services/ai';
 
 export default function Home() {
   const router = useRouter();
@@ -26,13 +29,17 @@ export default function Home() {
 
   const prediction = useMemo(() => predictFromDna(dna), [dna]);
   const avgRisk = useMemo(() => totalRisk(dna), [dna]);
+  const hasData = dna.length > 0;
 
   return (
     <Screen>
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.headerLeft}>
           <Caption>안녕하세요</Caption>
           <Title>{profile?.name ?? '학습자'}님</Title>
+          <View style={styles.badgeRow}>
+            <ModeBadge status={getServiceStatus()} />
+          </View>
         </View>
         <View style={styles.logoBadge}>
           <DnaIcon size={26} color={colors.onDark} />
@@ -42,16 +49,27 @@ export default function Home() {
       {/* 오늘의 학습 진단 */}
       <Card>
         <SectionTitle
-          right={<Caption>평균 위험도 {Math.round(avgRisk)}</Caption>}
+          right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : undefined}
         >
           오늘의 학습 진단
         </SectionTitle>
-        <Body muted>
-          당신의 Error DNA는 지금까지의 풀이에서 반복된 실수 패턴을 보여줍니다.
-        </Body>
-        <View style={styles.dnaBlock}>
-          <ErrorDnaBars entries={dna} />
-        </View>
+        {hasData ? (
+          <>
+            <Body muted>
+              당신의 Error DNA는 지금까지의 풀이에서 반복된 실수 패턴을 보여줍니다.
+            </Body>
+            <View style={styles.dnaBlock}>
+              <ErrorDnaBars entries={dna} />
+            </View>
+          </>
+        ) : (
+          <EmptyState
+            title="아직 Error DNA가 없어요"
+            description="문제를 풀면 당신이 어떻게 틀리는지를 AI가 학습해 나만의 실수 패턴(Error DNA)을 만들어 드려요."
+            ctaLabel="첫 문제 풀기"
+            onCta={() => router.push('/practice')}
+          />
+        )}
       </Card>
 
       {/* 다음 실수 예측 */}
@@ -105,10 +123,12 @@ export default function Home() {
 const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
+  headerLeft: { flex: 1 },
+  badgeRow: { marginTop: spacing.sm },
   logoBadge: {
     width: 46,
     height: 46,
