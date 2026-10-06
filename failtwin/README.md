@@ -210,19 +210,22 @@ npm 스크립트는 모두 실제 파일을 가리킵니다: `start/android/ios/
     (오답→분석→DNA 0→20→예측→**새** Trap 문제→Prediction HIT→교정 20→11→리포트). 코어 경험이
     실제로 "실행"됨을 증명합니다.
   - 자세한 내용은 [`verify/README.md`](verify/README.md).
-- **CI:** `.github/workflows/failtwin-ci.yml` — `npm ci`(lock 없으면 install)·typecheck·lint·test +
-  별도 logic-tests job. 시크릿 없음.
+- **CI (GitHub Actions, 실제 녹색 확인됨):** `.github/workflows/failtwin-ci.yml` — `verify` job이
+  네트워크 러너에서 `npm install → typecheck → lint → jest`를 실행하며 **전부 통과**. Jest 결과
+  **11 suites / 62 tests passed**(54 로직/서비스 + 8 컴포넌트 렌더). 별도 `logic-tests` job도 green.
+  시크릿 없음.
 
 ### 검증 상태 (정직한 구분)
 | 항목 | 상태 |
 |---|---|
-| 순수 TS 로직 typecheck | ✅ 검증됨 (clean) |
-| 로직/서비스 유닛 테스트 54개 | ✅ 검증됨 (54/54 pass) |
+| TypeScript strict typecheck (`npm run typecheck`) | ✅ 검증됨 — CI green |
+| Lint (`npm run lint`, eslint-config-expo) | ✅ 검증됨 — CI green |
+| 전체 Jest (`npm test`, 로직+컴포넌트) | ✅ 검증됨 — CI green, **62/62 pass** |
+| 순수 TS 로직 typecheck/테스트 (오프라인) | ✅ 검증됨 (54/54, clean) |
 | 코어 루프 런타임 실행(`demo:loop`) | ✅ 검증됨 |
-| UI(.tsx) typecheck (오프라인 스텁) | ✅ 실질 0 (알려진 스텁 1건, `verify/README.md`) |
-| `npm install` / 전체 Jest / 컴포넌트 렌더 | ⏳ 미검증 — 네트워크 머신 필요(개발 샌드박스 npm 차단) |
-| Expo Web / Expo Go / 모바일 실행 | ⏳ 미검증 — 동일 사유 |
-| **Real Croche 실제 호출** | ⏳ 미검증 — 공식 Croche SDK/자격증명 부재(§9) |
+| GitHub Actions `verify` + `logic-tests` | ✅ 검증됨 — 둘 다 success |
+| Expo Web / Expo Go / 모바일 실행 | ⏳ 미검증 — 개발 샌드박스 npm 차단; `scripts/qa-networked.sh --web`로 네트워크 머신에서 실행 |
+| **Real Croche 실제 호출** | ⏳ 미연결 — 공식 Croche SDK/자격증명 부재(§16). 이번 과제 범위 아님 |
 
 ## 15. 개인정보 & 안전
 - 학습 기록은 `ft:{userId}:...` 키로 네임스페이스되어 **계정 간 분리**됩니다.
