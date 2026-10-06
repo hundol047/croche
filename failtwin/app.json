@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "FailTwin",
+    "slug": "failtwin",
+    "scheme": "failtwin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#4F46E5"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.croche.failtwin"
+    },
+    "android": {
+      "package": "org.croche.failtwin"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "crocheMode": "mock"
+    }
+  }
+}
