@@ -9,6 +9,7 @@ import type { Subject, AnswerType, ErrorType } from '@/domain/types';
  * scenarios across subjects so repeated taps surface different problems.
  */
 export interface TrapTemplate {
+  targetedWrongAnswers?: string[];
   subject: Subject;
   topic: string;
   question: string;
@@ -29,10 +30,22 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
         'ln(x-2) + ln(5-x) 가 정의되는 x의 범위를 구하시오. (구간 형태, 예: (a,b) )',
       answerType: 'text',
       correctAnswer: '(2,5)',
+      targetedWrongAnswers: ['[2,5]', '[2,5)', '(2,5]'],
       explanation: '두 로그 모두 진수>0 이어야 하므로 x-2>0 그리고 5-x>0 → 2<x<5.',
       trapExplanation:
         '한쪽 로그의 조건만 보고 범위를 넓게 잡기 쉽습니다. 두 조건의 교집합을 모두 반영해야 합니다.',
       difficulty: 'medium',
+    },
+    {
+      subject: '공업수학',
+      topic: '제곱근 정의역',
+      question: '√(9-x²)가 실수로 정의되는 x의 범위를 구하시오. (구간 형태)',
+      answerType: 'text',
+      correctAnswer: '[-3,3]',
+      targetedWrongAnswers: ['(-3,3)', '[-3,3)', '(-3,3]'],
+      explanation: '9-x²≥0 → x²≤9 → -3≤x≤3. 제곱근은 진수가 0이어도 정의됩니다.',
+      trapExplanation: '로그와 달리 제곱근은 경계값 0을 허용합니다. 부등호와 양 끝점 조건을 확인하세요.',
+      difficulty: 'easy',
     },
     {
       subject: 'Python 프로그래밍',
@@ -56,6 +69,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
         'Σ ((-1)ⁿ xⁿ / √n) (n=1→∞)의 수렴구간을 끝점 포함 여부까지 구하시오.',
       answerType: 'text',
       correctAnswer: '(-1,1]',
+      targetedWrongAnswers: ['(-1,1)', '[-1,1]', '[-1,1)'],
       explanation:
         'R=1. x=1: 교대급수 Σ(-1)ⁿ/√n 수렴. x=-1: Σ1/√n 발산. 따라서 (-1,1].',
       trapExplanation:
@@ -68,8 +82,9 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
       question:
         '다음 코드의 출력은?\n\n    s = "FAILTWIN"\n    print(s[2:7])',
       answerType: 'text',
-      correctAnswer: 'ILTW',
-      explanation: 's[2:7]은 인덱스 2,3,4,5,6 → "ILTW" (7은 미포함).',
+      correctAnswer: 'ILTWI',
+      targetedWrongAnswers: ['ILTWIN', 'ILTW'],
+      explanation: 's[2:7]은 인덱스 2,3,4,5,6 → "ILTWI" (7은 미포함).',
       trapExplanation:
         '끝 인덱스가 포함된다고 착각하기 쉬운 경계 상황입니다. 슬라이스 끝은 배타적입니다.',
       difficulty: 'medium',
@@ -82,6 +97,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
       answerType: 'mcq',
       options: ['v=0, a=0', 'v=0, a=g', 'v=g, a=0', 'v=g, a=g'],
       correctAnswer: 'v=0, a=g',
+      targetedWrongAnswers: ['v=0, a=0'],
       explanation: '최고점에서 속도는 0이지만 중력가속도 g는 계속 작용합니다.',
       trapExplanation:
         '"멈췄으니 가속도도 0"이라는 경계 상황 오해를 유발합니다. 속도=0이어도 가속도는 g입니다.',
@@ -142,6 +158,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
       question: '∫ (-2x) dx 를 구하시오. (C 포함, 예: -x^2 + C)',
       answerType: 'text',
       correctAnswer: '-x^2 + C',
+      targetedWrongAnswers: ['x^2 + C'],
       explanation: '∫-2x dx = -x² + C.',
       trapExplanation: '부호를 반대로 적기 쉬운 전형적 부호 오류 상황입니다.',
       difficulty: 'easy',
@@ -154,6 +171,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
       question: '1 g/cm³ 는 몇 kg/m³ 인가? (숫자만)',
       answerType: 'numeric',
       correctAnswer: '1000',
+      targetedWrongAnswers: ['1'],
       explanation: '1 g/cm³ = 1000 kg/m³.',
       trapExplanation: '단위 변환 배율(1000)을 빠뜨리기 쉬운 상황입니다.',
       difficulty: 'medium',
@@ -168,6 +186,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
       answerType: 'mcq',
       options: ['v=gt', 'v=√(2gh)', 'v=h/t', 'v=½gt²'],
       correctAnswer: 'v=√(2gh)',
+      targetedWrongAnswers: ['v=gt'],
       explanation: '시간 t를 모를 때는 에너지 보존 v=√(2gh)가 적절합니다.',
       trapExplanation: '습관적으로 v=gt를 고르게 되는, 공식 선택 오류 유발 문제입니다.',
       difficulty: 'medium',
@@ -181,6 +200,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
         '다음 코드의 출력은?\n\n    a = [[0], [0]]\n    b = a[:]\n    b[0].append(1)\n    print(a[0])',
       answerType: 'text',
       correctAnswer: '[0, 1]',
+      targetedWrongAnswers: ['[0]'],
       explanation: 'a[:]는 얕은 복사라 내부 리스트는 공유됩니다. a[0]도 [0,1].',
       trapExplanation: '"복사했으니 독립"이라는 개념 혼동을 유발합니다.',
       difficulty: 'hard',
@@ -194,6 +214,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
         '10 m/s로 등속 운동하는 물체의 5초 "동안의 가속도"는? (숫자만, m/s²)',
       answerType: 'numeric',
       correctAnswer: '0',
+      targetedWrongAnswers: ['50'],
       explanation: '등속 운동이므로 가속도는 0. (거리를 묻는 것이 아님)',
       trapExplanation: '거리(50)를 반사적으로 답하게 만드는, 문제 오독 유발 상황입니다.',
       difficulty: 'easy',
@@ -206,6 +227,7 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
       question: '√(x+6) = x 의 해를 모두 구하시오. (쉼표로 구분)',
       answerType: 'text',
       correctAnswer: '3',
+      targetedWrongAnswers: ['3,-2', '-2,3'],
       explanation: '양변 제곱: x²-x-6=0 → x=3 또는 x=-2. 검산하면 x=-2는 무연근. 해는 3.',
       trapExplanation:
         '제곱 후 검산을 생략하면 무연근 -2를 답에 포함하게 됩니다. 반드시 대입 검산이 필요합니다.',

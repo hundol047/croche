@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { ErrorState } from '@/components/ErrorState';
 import { Pill } from '@/components/Pill';
 import { DnaIcon, Sparkle } from '@/components/icons';
 import { colors, radius, spacing, typography } from '@/constants/theme';
@@ -22,26 +23,25 @@ export default function Onboarding() {
   const [goal, setGoal] = useState<LearningGoal>('대학교 전공');
   const [interests, setInterests] = useState<Subject[]>(['공업수학']);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
 
   const toggleInterest = (s: Subject) => {
     setInterests((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   };
 
-  const start = async () => {
+  const launch = async (demo: boolean) => {
     setBusy(true);
-    const profile = await createRealProfile(repos, { name, goal, interests });
-    setProfile(profile);
-    setBusy(false);
-    router.replace('/(tabs)');
+    setError(false);
+    try {
+      const profile = demo ? await seedDemo(repos) : await createRealProfile(repos, { name, goal, interests });
+      await setProfile(profile);
+      if (router.canDismiss()) router.dismissAll();
+      router.replace('/(tabs)');
+    } catch { setError(true); }
+    finally { setBusy(false); }
   };
-
-  const quickDemo = async () => {
-    setBusy(true);
-    const profile = await seedDemo(repos);
-    setProfile(profile);
-    setBusy(false);
-    router.replace('/(tabs)');
-  };
+  const start = () => launch(false);
+  const quickDemo = () => launch(true);
 
   return (
     <Screen>
@@ -98,11 +98,12 @@ export default function Onboarding() {
         </View>
       </Card>
 
+      {error ? <ErrorState message="저장에 실패했어요. 브라우저의 저장 공간을 확인해주세요." onRetry={start} /> : null}
       <Button
         label="시작하기"
         onPress={start}
         loading={busy}
-        disabled={interests.length === 0}
+        disabled={interests.length === 0 || name.trim().length === 0}
         testID="onboarding-start"
       />
       <View style={styles.gap} />

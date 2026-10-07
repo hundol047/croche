@@ -1,48 +1,44 @@
 import type { TrapProblem, ErrorType } from './types';
 
-/**
- * Deterministic evaluation of a trap attempt. Pure functions (no LLM) so the
- * HIT/극복 outcome is reproducible and testable.
- */
-
 function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, '');
 }
 
-export function checkAnswer(trap: Pick<TrapProblem, 'answerType' | 'correctAnswer'>, answer: string): boolean {
-  const type = trap.answerType;
-  const correct = trap.correctAnswer;
-  if (type === 'numeric') {
-    const na = parseFloat(answer.replace(/[^0-9.+-eE]/g, ''));
-    const nc = parseFloat(correct.replace(/[^0-9.+-eE]/g, ''));
-    if (Number.isNaN(na) || Number.isNaN(nc)) return normalize(answer) === normalize(correct);
-    return Math.abs(na - nc) < 1e-6;
-  }
-  if (type === 'mcq') {
-    const a = new Set(answer.split(/[,/\s]+/).map(normalize).filter(Boolean));
-    const c = new Set(correct.split(/[,/\s]+/).map(normalize).filter(Boolean));
-    if (a.size !== c.size) return false;
-    for (const x of c) if (!a.has(x)) return false;
-    return true;
-  }
-  return normalize(answer) === normalize(correct);
+/** Accept complete numeric literals, never partial answers such as "20+1". */
+function numericValue(s: string): number | null {
+  const text = s.trim();
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(text)) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
 }
 
-/**
- * When the trap answer is wrong, infer which cognitive mistake the learner
- * made. For a trap the default assumption is that the learner fell for the
- * targeted mistake, unless the reasoning text clearly signals another pattern.
- * This drives the "Prediction HIT" judgement.
- */
+export function checkAnswer(trap: Pick<TrapProblem, 'answerType' | 'correctAnswer'>, answer: string): boolean {
+  if (trap.answerType === 'numeric') {
+    const a = numericValue(answer);
+    const c = numericValue(trap.correctAnswer);
+    return a !== null && c !== null && Math.abs(a - c) < 1e-6;
+  }
+  if (normalize(answer) === normalize(trap.correctAnswer)) return true;
+  if (trap.answerType === 'mcq') {
+    const a = new Set(answer.split(/[,/\s]+/).map(normalize).filter(Boolean));
+    const c = new Set(trap.correctAnswer.split(/[,/\s]+/).map(normalize).filter(Boolean));
+    return a.size === c.size && [...c].every((x) => a.has(x));
+  }
+  return false;
+}
+
+/** Only claim a HIT with evidence; a wrong answer alone proves no error type. */
 export function inferTrapErrorType(
-  trap: Pick<TrapProblem, 'targetErrorType'>,
-  _answer: string,
+  trap: Pick<TrapProblem, 'targetErrorType' | 'targetedWrongAnswers'>,
+  answer: string,
   reasoning?: string,
-): ErrorType {
+): ErrorType | undefined {
   const text = (reasoning ?? '').toLowerCase();
   if (/빨리|급하게|대충|quick|rush/.test(text)) return 'rushed_reasoning';
-  if (/단위|unit/.test(text)) return 'unit_error';
-  if (/부호|sign|음수|negative/.test(text)) return 'sign_error';
-  // Default: the learner fell for exactly the trap the problem was designed for.
-  return trap.targetErrorType;
+  if (/단위.*(?:생략|빠뜨|안|그대로)|unit.*(?:omit|ignore)/.test(text)) return 'unit_error';
+  if (/부호.*(?:반대|빠뜨|실수)|sign.*(?:wrong|omit)/.test(text)) return 'sign_error';
+  if (trap.targetedWrongAnswers?.some((a) => normalize(a) === normalize(answer))) {
+    return trap.targetErrorType;
+  }
+  return undefined;
 }

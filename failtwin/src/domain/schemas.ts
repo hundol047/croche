@@ -59,6 +59,7 @@ export const trapProblemSchema = z
     correctAnswer: z.string().min(1).max(400),
     explanation: z.string().min(1).max(1200),
     targetErrorType: errorType,
+    targetedWrongAnswers: z.array(z.string().max(400)).max(10).optional(),
     trapExplanation: z.string().min(1).max(800),
     difficulty,
   })
@@ -86,7 +87,7 @@ export const problemSchema = z
     targetErrorType: errorType.optional(),
   })
   .refine(
-    (p) => (p.answerType === 'mcq' ? (p.options ?? []).includes(p.correctAnswer) : true),
+    (p) => (p.answerType === 'mcq' ? (p.options ?? []).includes(p.correctAnswer) || p.correctAnswer.split(/,\s*/).every((a: string) => (p.options ?? []).includes(a.trim())) : true),
     { message: 'correctAnswer must be one of options for mcq', path: ['correctAnswer'] },
   );
 
@@ -96,6 +97,7 @@ export const problemSchema = z
  * `z.ZodType<T>` annotations while still binding schemas to the domain types.
  */
 type Assignable<From, To> = From extends To ? true : never;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function assertAssignable<_T extends true>(): void {
   /* type-level only */
 }

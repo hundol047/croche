@@ -28,6 +28,7 @@ export function Button({
   const isDisabled = disabled || loading;
   return (
     <Pressable
+      disabled={!!isDisabled}
       testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!isDisabled }}
@@ -73,10 +74,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  content: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   icon: { marginRight: spacing.sm },
-  label: { ...typography.bodyStrong, fontSize: 16 },
+  label: { ...typography.bodyStrong, fontSize: 16, textAlign: 'center', flexShrink: 1 },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
 });

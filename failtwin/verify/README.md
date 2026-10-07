@@ -1,42 +1,21 @@
-# Offline verification harness (`verify/`)
+# 독립 로직 검증 하네스
 
-> **Not part of the shipped app.** This directory exists only to type-check and
-> unit-test FailTwin **in an offline sandbox where `npm install` is unavailable**
-> (the npm registry was blocked during development). On a networked machine you
-> should instead run the real toolchain: `npm install && npm run typecheck && npm test`.
+`verify/`는 앱 번들에 포함되지 않습니다. 실제 개발 검사는 `npm ci` 후
+`npm run typecheck`와 Jest를 사용하세요. 앱 tsconfig는 이 디렉터리의 ambient 선언을 제외합니다.
 
-## What's here
-- `zod-shim/` — a tiny dependency-free re-implementation of the subset of `zod`
-  that `src/domain/schemas.ts` and `src/services/ai/tools.ts` use, with real
-  validation semantics so the schema tests are meaningful.
-- `harness.ts` + `run.ts` — a minimal Jest-compatible `describe/it/expect`
-  runner so the standard test files in `__tests__/*.test.ts` run under plain
-  `tsc` + `node`. The same files run unchanged under real Jest.
-- `preload.js` — a node `require` hook mapping the `@/*` path alias and `zod`
-  to the compiled output / shim at runtime.
-- `demo-loop.ts` — runs the REAL domain engine + MockCrocheAIService through the
-  full learning journey and prints the data changes (proves the core loop
-  executes at runtime, not just assertions). `npm run demo:loop`.
-- `*.d.ts` + `tsconfig.*.json` — ambient stubs for the React Native / Expo
-  surface so the `.tsx` layer type-checks without `node_modules`.
+- `zod-shim/`: 독립 로직 검사에만 쓰는 Zod 부분 구현. 실제 Jest와 앱은 설치한 Zod를 사용합니다.
+- `harness.ts`, `run.ts`: 같은 로직·서비스 테스트 파일을 TypeScript와 Node로 실행합니다.
+- `preload.js`: 컴파일 결과에서 `@/*`와 shim 경로를 해석합니다.
+- `demo-loop.ts`: UI와 같은 저장·도메인 함수를 사용해 정확한 심사 루프를 실행하고 결과를 assert합니다.
+- UI ambient 파일은 별도의 제한된 stub 검사 용도입니다. 실제 RN/Expo 타입 검사를 대체하지 않습니다.
 
-## Run it
 ```bash
-npm run test:logic                    # compile + run logic/service unit tests
-npm run typecheck:logic               # logic-layer typecheck
-npm run demo:loop                     # runtime demo of the full core loop
-bash scripts/verify-logic.sh          # (equivalent) logic typecheck + tests
-tsc -p verify/tsconfig.ui.json        # UI (.tsx) typecheck with offline stubs
+npm run typecheck:logic
+npm run test:logic
+npm run demo:loop
 ```
 
-## Results on this machine
-- **Logic typecheck:** clean (0 errors).
-- **Unit tests:** 54 passed / 0 failed (domain + storage + Mock loop +
-  RealCrocheAIService-with-fake-client + service status/fallback).
-- **Runtime demo loop:** executes end-to-end successfully.
-- **UI typecheck:** 0 real errors. **1 residual error** at
-  `src/state/AppContext.tsx:102` is a known limitation of the hand-rolled React
-  `createContext` type stub (automatic-JSX-runtime generic inference), **not** a
-  defect in the app. `<AppCtx.Provider value={value}>` with `value: AppState` is
-  standard, correct React and type-checks under the real `@types/react`
-  (verify with `npm install && npm run typecheck`).
+2026-10-07 검증: 독립 로직 **68 passed / 0 failed**, typecheck 통과.
+심사 루프는 조건 누락 **83→100**, 근거 기반 Prediction HIT, 새 Trap 교정 **100→91**,
+저장된 Trap 2회 중 적중 1회·교정 성공 1회를 확인합니다.
+전체 Jest는 **12 suites / 76 tests**이며 UI 렌더 테스트도 포함합니다.

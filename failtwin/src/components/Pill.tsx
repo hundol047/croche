@@ -25,7 +25,7 @@ export function Pill({ label, selected, onPress, tone = 'indigo' }: PillProps) {
   );
   if (!onPress) return body;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }}>
+    <Pressable onPress={onPress} accessibilityRole="button" aria-pressed={!!selected} accessibilityState={{ selected }}>
       {body}
     </Pressable>
   );
@@ -40,6 +40,8 @@ const toneColor = {
 
 const styles = StyleSheet.create({
   pill: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,

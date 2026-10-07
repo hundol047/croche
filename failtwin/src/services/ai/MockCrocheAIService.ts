@@ -26,6 +26,7 @@ import { clamp, round1 } from '@/utils/clamp';
 import { seededId } from '@/utils/id';
 import type { Result } from '@/utils/result';
 import { TRAP_TEMPLATES } from './trapTemplates';
+import { checkAnswer } from '@/domain/trapEval';
 
 /**
  * Fully-working, DETERMINISTIC mock of the Croche AI service. Seedable so demo
@@ -46,6 +47,7 @@ export class MockCrocheAIService implements CrocheAIService {
   readonly kind = 'mock' as const;
   private latencyMs: number;
   private seed: number;
+  private trapTurns = new Map<string, number>();
 
   constructor(opts: MockOptions = {}) {
     this.latencyMs = opts.latencyMs ?? 450;
@@ -59,7 +61,7 @@ export class MockCrocheAIService implements CrocheAIService {
   async analyzeMistake(input: AnalyzeInput): Promise<Result<MistakeAnalysis>> {
     await this.delay();
     const { problem, attempt } = input;
-    const isCorrect = compareAnswer(problem.answerType, attempt.userAnswer, problem.correctAnswer);
+    const isCorrect = checkAnswer(problem, attempt.userAnswer);
 
     if (isCorrect) {
       const analysis: MistakeAnalysis = {
@@ -130,11 +132,14 @@ export class MockCrocheAIService implements CrocheAIService {
     await this.delay();
     const templates = TRAP_TEMPLATES[input.targetErrorType] ?? TRAP_TEMPLATES['verification_omission'];
     const list = templates.filter((t) => t.subject === input.subject);
-    const pool = list.length > 0 ? list : templates;
-    // Deterministic rotation: vary by seed + recentTopics length so repeated
-    // taps produce a DIFFERENT problem (not just new numbers).
-    const idx = (this.seed + input.recentTopics.length) % pool.length;
-    this.seed += 1;
+    const matching = list.length > 0 ? list : templates;
+    const unseen = matching.filter((t) => !input.recentTopics.includes(t.topic));
+    const pool = unseen.length ? unseen : matching;
+    // Rotation is independent of unrelated generateProblem calls.
+    const key = `${input.targetErrorType}:${input.subject}`;
+    const turn = this.trapTurns.get(key) ?? 0;
+    const idx = turn % pool.length;
+    this.trapTurns.set(key, turn + 1);
     const tpl = pool[idx]!;
 
     const trap: TrapProblem = {
@@ -146,6 +151,7 @@ export class MockCrocheAIService implements CrocheAIService {
       correctAnswer: tpl.correctAnswer,
       explanation: tpl.explanation,
       targetErrorType: input.targetErrorType,
+      targetedWrongAnswers: tpl.targetedWrongAnswers,
       trapExplanation: tpl.trapExplanation,
       difficulty: tpl.difficulty,
     };
@@ -175,24 +181,6 @@ export class MockCrocheAIService implements CrocheAIService {
 
 // ───────────────────────── heuristics ─────────────────────────
 
-function compareAnswer(type: Problem['answerType'], a: string, correct: string): boolean {
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '');
-  if (type === 'numeric') {
-    const na = parseFloat(a.replace(/[^0-9.+-eE]/g, ''));
-    const nc = parseFloat(correct.replace(/[^0-9.+-eE]/g, ''));
-    if (Number.isNaN(na) || Number.isNaN(nc)) return norm(a) === norm(correct);
-    return Math.abs(na - nc) < 1e-6;
-  }
-  if (type === 'mcq') {
-    const setA = new Set(a.split(/[,/\s]+/).map(norm).filter(Boolean));
-    const setC = new Set(correct.split(/[,/\s]+/).map(norm).filter(Boolean));
-    if (setA.size !== setC.size) return false;
-    for (const x of setC) if (!setA.has(x)) return false;
-    return true;
-  }
-  return norm(a) === norm(correct);
-}
-
 function inferErrorType(problem: Problem, answer: string, reasoning?: string): ErrorType {
   // Prefer the problem's designed target (the mistake it was built to probe)
   // unless the reasoning text strongly signals a different pattern.
@@ -220,6 +208,8 @@ function inferSeverity(input: AnalyzeInput): number {
 function buildReason(problem: Problem, errorType: ErrorType, answer: string): string {
   const label = errorTypeLabel(errorType);
   switch (errorType) {
+    case 'condition_omission':
+      return `주어진 정의역이나 전제조건을 모두 반영하지 않아 "${answer}"로 답했어요. 정답 해설과 조건을 하나씩 비교해보세요.`;
     case 'edge_case_omission':
       return `접근 방식과 중간 계산은 올바르지만, 끝점·경계값 검토를 생략해 "${answer}"로 답했습니다. ${label}이(가) 결과를 바꾼 지점입니다.`;
     case 'unit_error':
@@ -246,6 +236,8 @@ function buildEvidence(problem: Problem, answer: string, reasoning?: string): st
 
 function buildCorrection(errorType: ErrorType): string {
   switch (errorType) {
+    case 'condition_omission':
+      return '계산을 시작하기 전 정의역·분모·전제조건을 적고, 답을 낸 뒤 모든 조건을 만족하는지 확인하세요.';
     case 'edge_case_omission':
       return '답을 확정하기 전, 끝점·경계값을 따로 대입해 검증하는 단계를 루틴으로 추가하세요.';
     case 'unit_error':

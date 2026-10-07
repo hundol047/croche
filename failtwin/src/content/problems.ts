@@ -34,6 +34,19 @@ export const PROBLEM_BANK: Problem[] = [
     targetErrorType: 'sign_error',
   },
 
+  {
+    id: 'eng-math-3',
+    subject: '공업수학',
+    topic: '약분과 정의역',
+    prompt: 'f(x) = (x²-1)/(x-1)에서 f(1)의 값은? "정의되지 않음" 또는 숫자로 답하세요.',
+    answerType: 'text',
+    correctAnswer: '정의되지 않음',
+    explanation: 'x≠1일 때만 x+1로 약분할 수 있습니다. 원래 식의 분모가 0인 x=1에서는 정의되지 않습니다.',
+    difficulty: 'easy',
+    source: 'bank',
+    targetErrorType: 'condition_omission',
+  },
+
   // ───────────────────────── 일반물리 ─────────────────────────
   {
     id: 'phys-1',

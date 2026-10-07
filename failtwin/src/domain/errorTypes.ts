@@ -91,11 +91,7 @@ export function isKnownErrorType(key: string): key is KnownErrorType {
 /** Human-readable Korean label for any errorType, including AI-extended ones. */
 export function errorTypeLabel(key: ErrorType): string {
   if (isKnownErrorType(key)) return ERROR_TYPE_META[key].labelKo;
-  // Fallback: turn "some_new_type" into "Some New Type" for display.
-  return key
-    .split('_')
-    .map((w) => (w.length ? w[0]!.toUpperCase() + w.slice(1) : w))
-    .join(' ');
+  return '새로운 실수 패턴';
 }
 
 export function errorTypeDescription(key: ErrorType): string {

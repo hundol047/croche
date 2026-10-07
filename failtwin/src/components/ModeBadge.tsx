@@ -26,7 +26,7 @@ const CONFIG: Record<CrocheServiceStatus, { label: string; fg: string; bg: strin
     border: '#A7F3D0',
   },
   mock: {
-    label: 'Demo Mock',
+    label: 'Mock AI · Croche 미연결',
     fg: colors.indigo,
     bg: '#EEF2FF',
     border: '#C7D2FE',

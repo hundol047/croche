@@ -1,3 +1,5 @@
+import { TRAP_TEMPLATES } from '@/services/ai/trapTemplates';
+import { checkAnswer } from '@/domain/trapEval';
 import { MockCrocheAIService } from '@/services/ai/MockCrocheAIService';
 import { MemoryKVStore } from '@/storage/kv';
 import { makeRepositories } from '@/storage/repositories';
@@ -15,6 +17,29 @@ function attempt(problemId: string, answer: string, confidence: Attempt['confide
 }
 
 describe('end-to-end Mock loop', () => {
+  it('every shipped trap accepts its complete correct answer and rejects its targeted misconception answers', () => {
+    for (const templates of Object.values(TRAP_TEMPLATES)) {
+      for (const trap of templates) {
+        expect(checkAnswer(trap, trap.correctAnswer)).toBe(true);
+        for (const wrong of trap.targetedWrongAnswers ?? []) expect(checkAnswer(trap, wrong)).toBe(false);
+      }
+    }
+    const slice = TRAP_TEMPLATES.edge_case_omission!.find((t) => t.topic === '슬라이스 경계')!;
+    expect(slice.correctAnswer).toBe('FAILTWIN'.slice(2, 7));
+  });
+  it('rotates new trap content for the same weakness and subject independently of practice generation', async () => {
+    const svc = new MockCrocheAIService({ latencyMs: 0 });
+    const input = { targetErrorType: 'condition_omission', subject: '공업수학' as const, recentTopics: [], relevantMemories: [] };
+    const first = await svc.generateTrapProblem(input);
+    await svc.generateProblem({ subject: '일반물리' });
+    const second = await svc.generateTrapProblem(input);
+    expect(first.ok && second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(first.value.correctAnswer).toBe('(2,5)');
+      expect(second.value.correctAnswer).toBe('[-3,3]');
+      expect(second.value.question).not.toBe(first.value.question);
+    }
+  });
   it('analyzes a wrong answer into a structured MistakeAnalysis', async () => {
     const problem = problemById('eng-math-1')!;
     const r = await ai.analyzeMistake({

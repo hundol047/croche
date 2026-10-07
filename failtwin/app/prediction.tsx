@@ -1,3 +1,4 @@
+import { goToMain } from '@/utils/navigation';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -38,6 +39,7 @@ export default function PredictionScreen() {
       subject: subject ?? '공업수학',
       topic: topic ?? '',
     });
+    try {
     const res = await ai.predictNextMistake({ subject, topic, relevantMemories: memories });
     if (!res.ok) {
       // Fall back to the deterministic baseline prediction so the user still
@@ -53,6 +55,11 @@ export default function PredictionScreen() {
     }
     setPrediction(res.value);
     setPhase('done');
+    } catch {
+      const fallback = predictFromDna(dna);
+      setPrediction(fallback);
+      setPhase(fallback ? 'done' : 'error');
+    }
   }, [ai, dna, strongest]);
 
   useEffect(() => {
@@ -75,6 +82,7 @@ export default function PredictionScreen() {
             아직 예측할 데이터가 없어요. 문제를 몇 개 풀면 당신만의 Error DNA가 쌓이고, 그에 맞춘 예측을
             보여드릴게요.
           </Body>
+          <Button label="첫 문제 풀기" onPress={() => router.push('/practice')} />
         </Card>
       ) : null}
 
@@ -88,13 +96,13 @@ export default function PredictionScreen() {
           <Button
             label="🎯 이 실수를 유발하는 Trap 문제 받기"
             variant="violet"
-            onPress={() => router.push('/trap')}
+            onPress={() => router.push({ pathname: '/trap', params: { target: prediction.predictedErrorType } })}
           />
         </>
       ) : null}
 
       <View style={styles.gap} />
-      <Button label="홈으로" variant="ghost" onPress={() => router.replace('/(tabs)')} />
+      <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
     </Screen>
   );
 }

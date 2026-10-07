@@ -1,9 +1,11 @@
+import { goToMain } from '@/utils/navigation';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { ErrorState } from '@/components/ErrorState';
 import { Pill } from '@/components/Pill';
 import { Title, SectionTitle, Body, Caption } from '@/components/typography';
 import { Sparkle } from '@/components/icons';
@@ -18,22 +20,24 @@ export default function PracticeIndex() {
   const { ai } = useApp();
   const [subject, setSubject] = useState<Subject>('공업수학');
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(false);
 
   const problems = problemsBySubject(subject);
 
-  const openProblem = (p: Problem) => {
-    sessionStore.set('currentProblem', p);
-    router.push('/practice/solve');
+  const openProblem = async (p: Problem) => {
+    try { await sessionStore.startPractice(p); router.push('/practice/solve'); }
+    catch { setError(true); }
   };
 
   const generate = async () => {
     setGenerating(true);
-    const res = await ai.generateProblem({ subject });
-    setGenerating(false);
-    if (res.ok) {
-      sessionStore.set('currentProblem', res.value);
-      router.push('/practice/solve');
-    }
+    setError(false);
+    try {
+      const res = await ai.generateProblem({ subject });
+      if (!res.ok) { setError(true); return; }
+      await openProblem(res.value);
+    } catch { setError(true); }
+    finally { setGenerating(false); }
   };
 
   return (
@@ -57,9 +61,12 @@ export default function PracticeIndex() {
         testID="generate-problem"
       />
 
+      {error ? <ErrorState message="문제를 불러오지 못했어요." onRetry={generate} /> : null}
+      <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
+
       <SectionTitle>{subject} 문제</SectionTitle>
       {problems.map((p) => (
-        <Pressable key={p.id} onPress={() => openProblem(p)}>
+        <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.topic} 문제 풀기`} onPress={() => openProblem(p)}>
           <Card>
             <View style={styles.cardHeader}>
               <Text style={styles.topic}>{p.topic}</Text>

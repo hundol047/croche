@@ -16,7 +16,7 @@ interface LineChartProps {
 export function LineChart({ data, width = 300, height = 160 }: LineChartProps) {
   if (data.length === 0) {
     return (
-      <View style={[styles.empty, { height }]}>
+      <View style={[styles.empty, { height, width: '100%' }]}>
         <Text style={styles.emptyText}>데이터가 쌓이면 주차별 추이가 표시됩니다.</Text>
       </View>
     );
@@ -24,8 +24,8 @@ export function LineChart({ data, width = 300, height = 160 }: LineChartProps) {
 
   const padX = 28;
   const padY = 20;
-  const w = width;
-  const h = height;
+  const w = Math.max(100, Math.min(480, width));
+  const h = Math.max(80, height);
   const innerW = w - padX * 2;
   const innerH = h - padY * 2;
 
@@ -92,6 +92,6 @@ export function LineChart({ data, width = 300, height = 160 }: LineChartProps) {
 
 const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center' },
-  emptyText: { ...typography.body, color: colors.textMuted },
+  emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
   axisNote: { ...typography.caption, color: colors.textFaint, marginTop: spacing.xs },
 });

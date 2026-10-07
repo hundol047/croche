@@ -7,6 +7,19 @@ const base: Pick<TrapProblem, 'answerType' | 'correctAnswer'> = {
 };
 
 describe('trapEval', () => {
+  it('rejects malformed numeric answers instead of parsing only their prefix', () => {
+    for (const answer of ['20+1', '20oops', '2 0', '20m', 'Infinity', 'NaN', '']) {
+      expect(checkAnswer(base, answer)).toBe(false);
+    }
+    expect(checkAnswer(base, '2e1')).toBe(true);
+  });
+  it('does not turn an arbitrary wrong answer or mentioning a unit into a HIT', () => {
+    const trap = { targetErrorType: 'unit_error', targetedWrongAnswers: ['1'] };
+    expect(inferTrapErrorType(trap, '999', '단위를 확인했어요')).toBe(undefined);
+    expect(inferTrapErrorType(trap, '1')).toBe('unit_error');
+    expect(inferTrapErrorType(trap, '1', '급하게 찍었어요')).toBe('rushed_reasoning');
+  });
+
   it('checks numeric answers with tolerance and formatting noise', () => {
     expect(checkAnswer(base, '20')).toBe(true);
     expect(checkAnswer(base, ' 20 ')).toBe(true);
@@ -32,8 +45,8 @@ describe('trapEval', () => {
     expect(checkAnswer(txt, '[-1,1]')).toBe(false);
   });
 
-  it('infers the targeted error type by default (Prediction HIT)', () => {
-    const trap: Pick<TrapProblem, 'targetErrorType'> = { targetErrorType: 'edge_case_omission' };
+  it('infers the targeted error only for an explicit misconception answer', () => {
+    const trap: Pick<TrapProblem, 'targetErrorType' | 'targetedWrongAnswers'> = { targetErrorType: 'edge_case_omission', targetedWrongAnswers: ['(-1,1)'] };
     expect(inferTrapErrorType(trap, '(-1,1)', '')).toBe('edge_case_omission');
   });
 

@@ -64,53 +64,77 @@ export class ProfileRepo {
   }
 }
 
-export class DnaRepo {
+export interface LearningState {
+  dna: ErrorDnaEntry[];
+  mistakes: MistakeRecord[];
+  traps: TrapResult[];
+}
+
+// Serialize writes per store/user; each learning event and DNA change commit
+// as one value so retries cannot leave half an event in durable storage.
+const queues = new WeakMap<KVStore, Map<string, Promise<unknown>>>();
+export class LearningRepo {
   constructor(private kv: KVStore = getKV()) {}
 
-  async get(userId: string): Promise<ErrorDnaEntry[]> {
-    return readJson<ErrorDnaEntry[]>(this.kv, DNA_KEY(userId), []);
+  async get(userId: string): Promise<LearningState> {
+    const saved = await readJson<LearningState | null>(this.kv, `ft:${userId}:learning`, null);
+    if (saved) return saved;
+    // Read the original MVP keys without deleting any existing user history.
+    const [dna, mistakes, traps] = await Promise.all([
+      readJson<ErrorDnaEntry[]>(this.kv, DNA_KEY(userId), []),
+      readJson<MistakeRecord[]>(this.kv, MISTAKES_KEY(userId), []),
+      readJson<TrapResult[]>(this.kv, TRAPS_KEY(userId), []),
+    ]);
+    return { dna, mistakes, traps };
   }
 
+  async update(userId: string, change: (state: LearningState) => LearningState): Promise<LearningState> {
+    let byUser = queues.get(this.kv);
+    if (!byUser) { byUser = new Map(); queues.set(this.kv, byUser); }
+    const previous = byUser.get(userId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(async () => {
+      const state = change(await this.get(userId));
+      await writeJson(this.kv, `ft:${userId}:learning`, state);
+      return state;
+    });
+    byUser.set(userId, next);
+    try { return await next; }
+    finally { if (byUser.get(userId) === next) byUser.delete(userId); }
+  }
+}
+
+export class DnaRepo {
+  private learning: LearningRepo;
+  constructor(kv: KVStore = getKV()) { this.learning = new LearningRepo(kv); }
+  async get(userId: string): Promise<ErrorDnaEntry[]> { return (await this.learning.get(userId)).dna; }
   async save(userId: string, entries: ErrorDnaEntry[]): Promise<void> {
-    await writeJson(this.kv, DNA_KEY(userId), entries);
+    await this.learning.update(userId, (s) => ({ ...s, dna: entries }));
   }
 }
 
 export class MistakeRepo {
-  constructor(private kv: KVStore = getKV()) {}
-
-  async get(userId: string): Promise<MistakeRecord[]> {
-    return readJson<MistakeRecord[]>(this.kv, MISTAKES_KEY(userId), []);
-  }
-
+  private learning: LearningRepo;
+  constructor(kv: KVStore = getKV()) { this.learning = new LearningRepo(kv); }
+  async get(userId: string): Promise<MistakeRecord[]> { return (await this.learning.get(userId)).mistakes; }
   async add(userId: string, record: MistakeRecord): Promise<MistakeRecord[]> {
-    const all = await this.get(userId);
-    const next = [...all, record];
-    await writeJson(this.kv, MISTAKES_KEY(userId), next);
-    return next;
+    return (await this.learning.update(userId, (s) => ({ ...s, mistakes: [...s.mistakes, record] }))).mistakes;
   }
-
   async save(userId: string, records: MistakeRecord[]): Promise<void> {
-    await writeJson(this.kv, MISTAKES_KEY(userId), records);
+    await this.learning.update(userId, (s) => ({ ...s, mistakes: records }));
   }
 }
 
 export class TrapRepo {
-  constructor(private kv: KVStore = getKV()) {}
-
-  async get(userId: string): Promise<TrapResult[]> {
-    return readJson<TrapResult[]>(this.kv, TRAPS_KEY(userId), []);
-  }
-
+  private learning: LearningRepo;
+  constructor(kv: KVStore = getKV()) { this.learning = new LearningRepo(kv); }
+  async get(userId: string): Promise<TrapResult[]> { return (await this.learning.get(userId)).traps; }
   async add(userId: string, result: TrapResult): Promise<TrapResult[]> {
-    const all = await this.get(userId);
-    const next = [...all, result];
-    await writeJson(this.kv, TRAPS_KEY(userId), next);
-    return next;
+    return (await this.learning.update(userId, (s) => ({ ...s, traps: [...s.traps, result] }))).traps;
   }
 }
 
 export interface Repositories {
+  learning: LearningRepo;
   profile: ProfileRepo;
   dna: DnaRepo;
   mistakes: MistakeRepo;
@@ -119,6 +143,7 @@ export interface Repositories {
 
 export function makeRepositories(kv: KVStore = getKV()): Repositories {
   return {
+    learning: new LearningRepo(kv),
     profile: new ProfileRepo(kv),
     dna: new DnaRepo(kv),
     mistakes: new MistakeRepo(kv),

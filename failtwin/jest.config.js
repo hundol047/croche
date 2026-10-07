@@ -10,10 +10,8 @@ module.exports = {
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
       },
-      globals: {
-        'ts-jest': {
-          tsconfig: '<rootDir>/tsconfig.logic.json',
-        },
+      transform: {
+        '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.logic.json' }],
       },
     },
     {

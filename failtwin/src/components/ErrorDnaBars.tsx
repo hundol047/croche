@@ -37,7 +37,7 @@ export function ErrorDnaBars({ entries, limit = 5 }: ErrorDnaBarsProps) {
               <Text style={styles.label} numberOfLines={1}>
                 {errorTypeLabel(e.errorType)}
               </Text>
-              <Text style={[styles.score, { color: c }]}>{Math.round(e.score)}%</Text>
+              <Text style={[styles.score, { color: c }]}>{Math.round(e.score)}점</Text>
             </View>
             <ProgressBar value={e.score} color={c} />
           </View>

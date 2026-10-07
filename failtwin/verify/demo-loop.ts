@@ -1,103 +1,56 @@
-/* Offline runtime demonstration of the FailTwin core loop (no RN, no network).
- * Runs the REAL domain engine + MockCrocheAIService through the full journey
- * and prints the data changes, proving the end-to-end experience executes.
- * Not part of the shipped app. */
+/* Presenter scenario through the same atomic event functions used by the UI. */
 import { MockCrocheAIService } from '@/services/ai/MockCrocheAIService';
 import { MemoryKVStore } from '@/storage/kv';
 import { makeRepositories } from '@/storage/repositories';
-import {
-  applyMistake,
-  applyCorrection,
-  findEntry,
-  upsertEntry,
-  strongestErrorType,
-} from '@/domain/errorDnaEngine';
+import { seedDemo } from '@/state/onboarding';
+import { recordPractice, recordTrap } from '@/domain/learningEvents';
 import { buildMemoryContext } from '@/domain/memorySelect';
-import { predictFromDna } from '@/domain/prediction';
 import { buildReport } from '@/domain/report';
-import { checkAnswer, inferTrapErrorType } from '@/domain/trapEval';
 import { problemById } from '@/content/problems';
 import { errorTypeLabel } from '@/domain/errorTypes';
-import { uid } from '@/utils/id';
 import { nowIso } from '@/utils/date';
-import type { ErrorType } from '@/domain/types';
+import type { Attempt } from '@/domain/types';
 
-const log = (...a: unknown[]) => console.log(...a);
-
+function assert(ok: boolean, message: string): void { if (!ok) throw new Error(message); }
 async function main() {
-  const ai = new MockCrocheAIService({ latencyMs: 0, seed: 3 });
+  const ai = new MockCrocheAIService({ latencyMs: 0 });
   const repos = makeRepositories(new MemoryKVStore());
-  const userId = 'demo-runtime';
+  const profile = await seedDemo(repos);
+  const problem = problemById('eng-math-3')!;
+  const attempt: Attempt = { id: 'judge-practice', userId: profile.userId, problemId: problem.id,
+    userAnswer: '2', userReasoning: 'x+1로 약분하고 x=1을 대입했어요.', confidence: 'medium', createdAt: nowIso() };
+  const analysis = await ai.analyzeMistake({ problem, attempt, relevantMemories: buildMemoryContext(await repos.dna.get(profile.userId), problem) });
+  if (!analysis.ok) throw new Error(analysis.error);
+  const record = await recordPractice(repos, problem, attempt, analysis.value);
+  await recordPractice(repos, problem, attempt, analysis.value); // replay must be harmless
+  assert((await repos.mistakes.get(profile.userId)).length === 1, 'Duplicate analysis');
+  assert(record.beforeScore === 83 && record.afterScore === 100, 'Unexpected practice score');
+  console.log(`1) 약분과 정의역 · 오답 2 → ${errorTypeLabel(record.errorType!)} ${record.beforeScore} → ${record.afterScore}`);
 
-  log('── FailTwin core loop (runtime demo) ──\n');
+  const dna = await repos.dna.get(profile.userId);
+  const prediction = await ai.predictNextMistake({ subject: '공업수학', relevantMemories: buildMemoryContext(dna, problem) });
+  if (!prediction.ok) throw new Error(prediction.error);
+  assert(prediction.value.predictedErrorType === 'condition_omission', 'Unexpected prediction');
+  console.log(`2) 다음 실수: 조건 누락 · AI 예측 위험도 ${prediction.value.riskScore}`);
 
-  // 1) Solve a problem WRONG (omit the endpoint check).
-  const problem = problemById('eng-math-1')!;
-  log(`1) 문제: [${problem.subject}/${problem.topic}] ${problem.prompt.slice(0, 40)}...`);
-  log(`   제출 답(오답): "(-1,1)"  (정답: ${problem.correctAnswer})`);
+  const input = { targetErrorType: prediction.value.predictedErrorType, subject: '공업수학' as const, recentTopics: [], relevantMemories: [] };
+  const first = await ai.generateTrapProblem(input);
+  if (!first.ok) throw new Error(first.error);
+  const hit = await recordTrap(repos, first.value, { ...attempt, id: 'judge-hit', problemId: 'trap-log', userAnswer: '[2,5]' });
+  assert(hit.predictionHit && !hit.solvedCorrectly, 'Expected evidence-backed HIT');
+  console.log('3) 로그 정의역 Trap · [2,5] → Prediction HIT');
 
-  const memBefore = buildMemoryContext(await repos.dna.get(userId), problem);
-  const analysisRes = await ai.analyzeMistake({
-    problem,
-    attempt: { id: uid('a'), userId, problemId: problem.id, userAnswer: '(-1,1)', confidence: 'high', createdAt: nowIso() },
-    relevantMemories: memBefore,
-  });
-  if (!analysisRes.ok) throw new Error('analysis failed: ' + analysisRes.error);
-  const analysis = analysisRes.value;
-  log(`\n2) AI 분석: 정답? ${analysis.isCorrect} · 핵심 실수 = ${errorTypeLabel(analysis.errorType ?? '')}`);
-  log(`   원인: ${analysis.reason.slice(0, 70)}...`);
+  const second = await ai.generateTrapProblem({ ...input, recentTopics: [first.value.topic] });
+  if (!second.ok) throw new Error(second.error);
+  assert(second.value.question !== first.value.question, 'Trap must have new content');
+  const overcome = await recordTrap(repos, second.value, { ...attempt, id: 'judge-correct', problemId: 'trap-root', userAnswer: '[-3,3]' });
+  assert(overcome.solvedCorrectly && overcome.beforeScore === 100 && overcome.afterScore === 91, 'Expected correction');
+  console.log('4) 제곱근 정의역 Trap · [-3,3] → Trap 극복 · 조건 누락 100 → 91');
 
-  // 3) Deterministic Error DNA update.
-  let dna = await repos.dna.get(userId);
-  const et = analysis.errorType as ErrorType;
-  const before = findEntry(dna, et)?.score ?? 0;
-  dna = upsertEntry(dna, applyMistake(findEntry(dna, et), {
-    userId, subject: problem.subject, topic: problem.topic, errorType: et, severity: analysis.severity,
-  }));
-  await repos.dna.save(userId, dna);
-  const after = findEntry(dna, et)!.score;
-  log(`\n3) Error DNA 변화: ${errorTypeLabel(et)} ${before} → ${after}`);
-
-  // 4) Prediction from DNA.
-  const pred = predictFromDna(dna, { subject: problem.subject, topic: problem.topic })!;
-  log(`\n4) 다음 실수 예측: ${errorTypeLabel(pred.predictedErrorType)} · AI 예측 위험도 ${Math.round(pred.riskScore)}`);
-
-  // 5) Trap Mode — target the strongest error type.
-  const target = strongestErrorType(dna)!.errorType;
-  const trapRes = await ai.generateTrapProblem({
-    targetErrorType: target, subject: '공업수학', recentTopics: [problem.topic],
-    relevantMemories: buildMemoryContext(dna, problem),
-  });
-  if (!trapRes.ok) throw new Error('trap failed: ' + trapRes.error);
-  const trap = trapRes.value;
-  log(`\n5) Trap 문제 생성 (타깃=${errorTypeLabel(target)}):`);
-  log(`   ${trap.question.slice(0, 60).replace(/\n/g, ' ')}...`);
-  log(`   함정: ${trap.trapExplanation.slice(0, 60)}...`);
-  log(`   이전 문제와 동일한가? ${trap.question === problem.prompt ? 'YES(문제!)' : 'NO (새 문제)'}`);
-
-  // 6) User falls for the trap (wrong) -> Prediction HIT.
-  const wrong = trap.answerType === 'numeric' ? '999' : 'wrong';
-  const solved = checkAnswer(trap, wrong);
-  const actual = solved ? undefined : inferTrapErrorType(trap, wrong, '');
-  const hit = !solved && actual === trap.targetErrorType;
-  log(`\n6) Trap 재도전(오답) → 정답? ${solved} · 예측 적중(HIT)? ${hit}`);
-  await repos.traps.add(userId, {
-    id: uid('tr'), userId, trapProblemId: uid('tq'), targetErrorType: trap.targetErrorType,
-    actualErrorType: actual, predictionHit: hit, solvedCorrectly: solved, createdAt: nowIso(),
-  });
-
-  // 7) Now the user CORRECTS the pattern -> score goes down.
-  const corr = applyCorrection(findEntry(dna, target)!, { confidence: 'medium' });
-  dna = upsertEntry(dna, corr);
-  await repos.dna.save(userId, dna);
-  log(`\n7) 교정 성공 → ${errorTypeLabel(target)} ${after} → ${corr.score} (하향)`);
-
-  // 8) Report.
-  const report = buildReport(await repos.mistakes.get(userId), await repos.traps.get(userId), dna);
-  log(`\n8) 리포트: 예측 적중률 ${Math.round(report.predictionHitRate * 100)}% · 가장 위험 = ${report.mostDangerousErrorType ? errorTypeLabel(report.mostDangerousErrorType) : '-'}`);
-  log(`   Insight: ${report.insight.slice(0, 80)}...`);
-
-  log('\n── 전체 루프가 런타임에서 정상 실행됨 ✓ ──');
+  const state = await repos.learning.get(profile.userId);
+  const report = buildReport(state.mistakes, state.traps, state.dna);
+  assert(report.predictionHitRate === 0.5 && report.correctedCount === 1, 'Incorrect report aggregation');
+  console.log('5) 리포트: Trap 2회 · 예측 적중 1회 (50%) · 교정 성공 1회');
+  console.log('전체 심사 루프 정상 실행 ✓ (Mock, Real Croche 미연결)');
 }
-
-void main();
+void main().catch((error) => { console.error(error); process.exitCode = 1; });

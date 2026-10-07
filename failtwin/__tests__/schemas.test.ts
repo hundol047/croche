@@ -1,3 +1,4 @@
+import { PROBLEM_BANK } from '@/content/problems';
 import {
   validateMistakeAnalysis,
   validatePrediction,
@@ -80,5 +81,11 @@ describe('schemas (AI JSON validation)', () => {
     const r = validateTrapProblem({ nonsense: true });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain('invalid AI response');
+  });
+});
+
+describe('complete practice bank', () => {
+  it('validates all bank problems including multi-select Python answers', () => {
+    for (const problem of PROBLEM_BANK) expect(validateProblem(problem).ok).toBe(true);
   });
 });

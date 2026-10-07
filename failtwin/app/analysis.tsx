@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { goToMain } from '@/utils/navigation';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -10,18 +11,19 @@ import { Title, SectionTitle, Body, Caption } from '@/components/typography';
 import { CheckIcon, TargetIcon } from '@/components/icons';
 import { colors, radius, spacing, typography, scoreColor } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
-import { useErrorDNA } from '@/state/useErrorDNA';
+import { recordPractice } from '@/domain/learningEvents';
+import { buildMemoryContext } from '@/domain/memorySelect';
 import { sessionStore } from '@/state/sessionStore';
 import { errorTypeLabel } from '@/domain/errorTypes';
-import { findEntry } from '@/domain/errorDnaEngine';
 import type { MistakeAnalysis } from '@/domain/types';
 
 type Phase = 'loading' | 'error' | 'done';
 
 export default function Analysis() {
   const router = useRouter();
-  const { ai, repos, profile } = useApp();
-  const { recordAnalysis, memoryContextFor } = useErrorDNA();
+  const { ai, repos, profile, refresh } = useApp();
+  const running = useRef(false);
+  const completed = useRef<string | null>(null);
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [analysis, setAnalysis] = useState<MistakeAnalysis | null>(null);
@@ -32,39 +34,40 @@ export default function Analysis() {
   const attempt = sessionStore.get('currentAttempt');
 
   const run = useCallback(async () => {
-    if (!problem || !attempt || !profile) {
+    if (!problem || !attempt || !profile || attempt.userId !== profile.userId) {
       setPhase('error');
       return;
     }
+    if (running.current || completed.current === attempt.id) return;
+    running.current = true;
     setPhase('loading');
+    try {
+      let record = (await repos.mistakes.get(profile.userId)).find((m) => m.attempt.id === attempt.id);
+      if (!record) {
+        const memories = buildMemoryContext(await repos.dna.get(profile.userId), problem);
+        const res = await ai.analyzeMistake({ problem, attempt, relevantMemories: memories });
+        if (!res.ok) { setPhase('error'); return; }
+        record = await recordPractice(repos, problem, attempt, res.value);
+      }
+      completed.current = attempt.id;
+      setAnalysis(record.analysis);
+      setBeforeScore(record.beforeScore ?? null);
+      setAfterScore(record.afterScore ?? null);
+      setPhase('done');
+      await refresh();
+    } catch { completed.current = null; setPhase('error'); }
+    finally { running.current = false; }
+  }, [ai, attempt, problem, profile, repos, refresh]);
 
-    // snapshot the targeted error type score BEFORE updating
-    const before = problem.targetErrorType
-      ? findEntry(await repos.dna.get(profile.userId), problem.targetErrorType)?.score ?? 0
-      : null;
+  useEffect(() => { void run(); }, [run]);
 
-    const memories = memoryContextFor({ subject: problem.subject, topic: problem.topic });
-    const res = await ai.analyzeMistake({ problem, attempt, relevantMemories: memories });
-
-    if (!res.ok) {
-      setPhase('error');
-      return;
-    }
-    setAnalysis(res.value);
-    sessionStore.set('currentAnalysis', res.value);
-    await recordAnalysis(problem, attempt, res.value);
-
-    // snapshot score AFTER updating (use errorType from analysis if wrong)
-    const key = res.value.errorType ?? problem.targetErrorType;
-    const after = key ? findEntry(await repos.dna.get(profile.userId), key)?.score ?? 0 : null;
-    setBeforeScore(before);
-    setAfterScore(after);
-    setPhase('done');
-  }, [ai, attempt, memoryContextFor, problem, profile, recordAnalysis, repos]);
-
-  useEffect(() => {
-    void run();
-  }, [run]);
+  if (!problem || !attempt) {
+    return <Screen><Title>풀이 기록이 없어요</Title>
+      <Body>분석할 답을 먼저 제출해주세요. 저장된 학습 기록은 리포트에서 볼 수 있어요.</Body>
+      <Button label="문제 고르기" onPress={() => router.navigate('/practice')} />
+      <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
+    </Screen>;
+  }
 
   if (phase === 'loading') {
     return (
@@ -77,7 +80,8 @@ export default function Analysis() {
   if (phase === 'error' || !analysis) {
     return (
       <Screen>
-        <ErrorState onRetry={run} />
+        <ErrorState message="분석이나 저장에 실패했어요. 다시 시도해도 같은 답은 한 번만 반영됩니다." onRetry={run} />
+        <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
       </Screen>
     );
   }
@@ -100,14 +104,32 @@ export default function Analysis() {
           <SectionTitle>핵심 실수 유형</SectionTitle>
           <View style={[styles.typeBadge, { backgroundColor: accent }]}>
             <Text style={styles.typeBadgeText}>
-              {analysis.errorTitle ?? errorTypeLabel(analysis.errorType)}
+              {errorTypeLabel(analysis.errorType)}
+            </Text>
+          </View>
+        </Card>
+      ) : null}
+
+      {/* Error DNA 변화 */}
+      {beforeScore !== null && afterScore !== null && (analysis.errorType || problem?.targetErrorType) ? (
+        <Card>
+          <SectionTitle>Error DNA 변화</SectionTitle>
+          <View style={styles.dnaChange}>
+            <Text style={styles.dnaLabel}>
+              {errorTypeLabel(analysis.errorType ?? problem!.targetErrorType!)}
+            </Text>
+            <Text style={styles.dnaDelta}>
+              {Math.round(beforeScore)} <Text style={styles.arrow}>→</Text>{' '}
+              <Text style={{ color: afterScore >= beforeScore ? colors.danger : colors.success }}>
+                {Math.round(afterScore)}
+              </Text>
             </Text>
           </View>
         </Card>
       ) : null}
 
       <Card>
-        <SectionTitle>실수 원인</SectionTitle>
+        <SectionTitle>{correct ? '잘한 점' : '실수 원인'}</SectionTitle>
         <Body>{analysis.reason}</Body>
       </Card>
 
@@ -135,29 +157,11 @@ export default function Analysis() {
         </Card>
       ) : null}
 
-      {/* Error DNA 변화 */}
-      {beforeScore !== null && afterScore !== null && (analysis.errorType || problem?.targetErrorType) ? (
-        <Card>
-          <SectionTitle>Error DNA 변화</SectionTitle>
-          <View style={styles.dnaChange}>
-            <Text style={styles.dnaLabel}>
-              {errorTypeLabel(analysis.errorType ?? problem!.targetErrorType!)}
-            </Text>
-            <Text style={styles.dnaDelta}>
-              {Math.round(beforeScore)} <Text style={styles.arrow}>→</Text>{' '}
-              <Text style={{ color: afterScore >= beforeScore ? colors.danger : colors.success }}>
-                {Math.round(afterScore)}
-              </Text>
-            </Text>
-          </View>
-        </Card>
-      ) : null}
-
       <Button label="다음 실수 예측 보기" onPress={() => router.push('/prediction')} />
       <View style={styles.gap} />
       <Button label="🎯 Trap Challenge 시작" variant="violet" onPress={() => router.push('/trap')} />
       <View style={styles.gap} />
-      <Button label="홈으로" variant="ghost" onPress={() => router.replace('/(tabs)')} />
+      <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
     </Screen>
   );
 }
@@ -170,7 +174,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginVertical: spacing.lg,
   },
-  verdictText: { ...typography.section, color: colors.onDark, marginLeft: spacing.md },
+  verdictText: { flex: 1, ...typography.section, color: colors.onDark, marginLeft: spacing.md },
   typeBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 8 },
   typeBadgeText: { ...typography.bodyStrong, color: colors.onDark },
   evidence: { ...typography.caption, fontSize: 13, color: colors.textMuted, lineHeight: 20, marginBottom: 4 },

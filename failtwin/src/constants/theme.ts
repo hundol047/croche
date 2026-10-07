@@ -1,3 +1,4 @@
+import { Platform, type ViewStyle } from 'react-native';
 /**
  * FailTwin design tokens.
  * White base with blue / indigo / violet accents — modern EdTech feel.
@@ -20,14 +21,14 @@ export const colors = {
   gradientEnd: '#7C3AED',
 
   // semantic
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
+  success: '#047857',
+  warning: '#B45309',
+  danger: '#DC2626',
 
   // text
   text: '#0F172A',
   textMuted: '#64748B',
-  textFaint: '#94A3B8',
+  textFaint: '#6B7280',
   onDark: '#FFFFFF',
   onDarkMuted: '#E0E7FF',
 
@@ -64,15 +65,17 @@ export const typography = {
   mono: { fontSize: 14, fontWeight: '600' as const, fontFamily: 'monospace' as const },
 } as const;
 
+const webCardShadow: ViewStyle & { boxShadow: string } = { boxShadow: '0 8px 20px rgba(30,41,59,0.08)' };
+const webSoftShadow: ViewStyle & { boxShadow: string } = { boxShadow: '0 4px 12px rgba(30,41,59,0.06)' };
 export const shadow = {
-  card: {
+  card: Platform.OS === 'web' ? webCardShadow : {
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
     elevation: 4,
   },
-  soft: {
+  soft: Platform.OS === 'web' ? webSoftShadow : {
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,

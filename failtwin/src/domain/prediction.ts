@@ -63,7 +63,7 @@ function buildReason(top: ErrorDnaEntry, ctx: { subject?: string; topic?: string
   const where = ctx.topic ?? ctx.subject ?? '유사한 문제';
   const freq =
     top.occurrenceCount >= 2
-      ? `최근 ${where}에서 ${label} 유형이 ${top.occurrenceCount}회 반복되었습니다.`
+      ? `관련 풀이에서 ${label} 패턴이 ${top.occurrenceCount}회 관찰되었습니다.`
       : `${where}에서 ${label} 경향이 관찰되었습니다.`;
-  return `${freq} 현재 Error DNA 점수가 ${Math.round(top.score)}로 가장 높아, 다음 문제에서 같은 실수가 재발할 가능성이 높습니다.`;
+  return `${freq} ${where}의 조건을 확인할 때 주의하세요. Error DNA 점수 ${Math.round(top.score)}를 바탕으로, 다음 문제에서 같은 실수가 재발할 가능성이 높습니다.`;
 }

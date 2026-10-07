@@ -92,7 +92,15 @@ export function getKV(): KVStore {
     }
   }
 
-  if (typeof g.localStorage !== 'undefined') {
+  try {
+    if (typeof g.localStorage !== 'undefined') {
+      singleton = new WebKVStore();
+      return singleton;
+    }
+  } catch {
+    // A blocked browser storage getter must reach the recoverable bootstrap
+    // error UI, rather than crash during repository construction or silently
+    // substitute temporary memory storage for promised persistence.
     singleton = new WebKVStore();
     return singleton;
   }

@@ -51,3 +51,8 @@ export async function seedDemo(repos: Repositories): Promise<UserProfile> {
   }
   return profile;
 }
+
+/** Explicit presenter reset affects only the demo namespace. */
+export async function resetDemo(repos: Repositories): Promise<void> {
+  await repos.learning.update(DEMO_USER_ID, () => ({ dna: buildDemoDna(DEMO_USER_ID), mistakes: [], traps: [] }));
+}

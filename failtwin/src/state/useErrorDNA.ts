@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useApp } from './AppContext';
 import {
-  applyMistake,
   applyCorrection,
   findEntry,
   upsertEntry,
@@ -14,10 +13,8 @@ import type {
   Attempt,
   ErrorType,
   Confidence,
-  MistakeRecord,
 } from '@/domain/types';
-import { uid } from '@/utils/id';
-import { nowIso } from '@/utils/date';
+import { recordPractice } from '@/domain/learningEvents';
 
 /**
  * Encapsulates all Error-DNA state transitions that follow an analysis, keeping
@@ -29,53 +26,10 @@ export function useErrorDNA() {
 
   const recordAnalysis = useCallback(
     async (problem: Problem, attempt: Attempt, analysis: MistakeAnalysis) => {
-      if (!profile) return;
-      const userId = profile.userId;
-
-      // 1) Persist the mistake record (history).
-      const record: MistakeRecord = {
-        id: uid('mistake'),
-        userId,
-        problemId: problem.id,
-        subject: problem.subject,
-        topic: problem.topic,
-        isCorrect: analysis.isCorrect,
-        errorType: analysis.errorType,
-        analysis,
-        attempt,
-        createdAt: nowIso(),
-      };
-      await repos.mistakes.add(userId, record);
-
-      // 2) Update Error DNA deterministically.
-      let entries = await repos.dna.get(userId);
-      if (!analysis.isCorrect && analysis.errorType) {
-        const existing = findEntry(entries, analysis.errorType);
-        const next = applyMistake(existing, {
-          userId,
-          subject: problem.subject,
-          topic: problem.topic,
-          errorType: analysis.errorType,
-          errorDescription: analysis.reason,
-          evidence: analysis.evidence,
-          severity: analysis.severity,
-          confidence: analysis.confidence,
-        });
-        entries = upsertEntry(entries, next);
-      } else if (analysis.isCorrect) {
-        // Correct answer: if this problem targeted an error type the user has,
-        // treat it as a correction and lower that score.
-        const target = problem.targetErrorType;
-        if (target) {
-          const existing = findEntry(entries, target);
-          if (existing) {
-            const next = applyCorrection(existing, { confidence: attempt.confidence });
-            entries = upsertEntry(entries, next);
-          }
-        }
-      }
-      await repos.dna.save(userId, entries);
+      if (!profile || attempt.userId !== profile.userId) throw new Error('User/attempt mismatch');
+      const result = await recordPractice(repos, problem, attempt, analysis);
       await refresh();
+      return result;
     },
     [profile, repos, refresh],
   );

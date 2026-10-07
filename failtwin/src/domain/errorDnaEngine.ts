@@ -63,6 +63,8 @@ export function applyMistake(
 
   return {
     ...base,
+    subject: input.subject,
+    topic: input.topic,
     errorDescription: input.errorDescription ?? base.errorDescription,
     evidence: mergeEvidence(base.evidence, input.evidence),
     occurrenceCount: nextOccurrence,

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -8,6 +8,9 @@ import { ErrorDnaBars } from '@/components/ErrorDnaBars';
 import { Title, SectionTitle, Body, Caption } from '@/components/typography';
 import { DnaIcon, TargetIcon, Sparkle } from '@/components/icons';
 import { colors, radius, spacing, typography, riskColor } from '@/constants/theme';
+import { resetDemo } from '@/state/onboarding';
+import { sessionStore } from '@/state/sessionStore';
+import { ErrorState } from '@/components/ErrorState';
 import { useApp } from '@/state/AppContext';
 import { predictFromDna } from '@/domain/prediction';
 import { errorTypeLabel } from '@/domain/errorTypes';
@@ -18,7 +21,19 @@ import { getServiceStatus } from '@/services/ai';
 
 export default function Home() {
   const router = useRouter();
-  const { profile, dna, refresh } = useApp();
+  const { profile, dna, refresh, resetAll, repos } = useApp();
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState(false);
+  const restartDemo = async () => {
+    setResetting(true);
+    try { await resetDemo(repos); await sessionStore.clear(); await refresh(); setResetError(false); }
+    catch { setResetError(true); }
+    finally { setResetting(false); }
+  };
+  const switchProfile = async () => {
+    try { await resetAll(); if (router.canDismiss()) router.dismissAll(); router.replace('/onboarding'); }
+    catch { setResetError(true); }
+  };
 
   // Refresh when the tab regains focus so Error DNA changes show immediately.
   useFocusEffect(
@@ -35,7 +50,7 @@ export default function Home() {
     <Screen>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Caption>안녕하세요</Caption>
+          <Caption>FailTwin · AI가 당신의 실수를 먼저 예측합니다</Caption>
           <Title>{profile?.name ?? '학습자'}님</Title>
           <View style={styles.badgeRow}>
             <ModeBadge status={getServiceStatus()} />
@@ -74,7 +89,7 @@ export default function Home() {
 
       {/* 다음 실수 예측 */}
       {prediction ? (
-        <Pressable onPress={() => router.push('/prediction')}>
+        <Pressable accessibilityRole="button" accessibilityLabel="다음 실수 예측 보기" onPress={() => router.push('/prediction')}>
           <View style={[styles.predictBanner, { backgroundColor: riskColor(prediction.riskScore) }]}>
             <View style={styles.predictLeft}>
               <TargetIcon size={22} color={colors.onDark} />
@@ -110,6 +125,11 @@ export default function Home() {
         onPress={() => router.push('/prediction')}
       />
 
+      <View style={styles.gap} />
+      {profile?.isDemo ? <Button label="데모 처음부터 · 예시 기록 초기화" variant="ghost" onPress={restartDemo} loading={resetting} testID="reset-demo" /> : null}
+      <View style={styles.gap} />
+      <Button label="새 프로필 / 데모 선택" variant="ghost" onPress={switchProfile} testID="switch-profile" />
+      {resetError ? <ErrorState message="저장 공간을 확인하고 다시 시도해주세요." onRetry={profile?.isDemo ? restartDemo : switchProfile} /> : null}
       <View style={styles.footerNote}>
         <Sparkle size={14} color={colors.textFaint} />
         <Caption>
@@ -154,5 +174,5 @@ const styles = StyleSheet.create({
   predictScore: { fontSize: 30, fontWeight: '800', color: colors.onDark, fontVariant: ['tabular-nums'] },
   predictScoreCap: { ...typography.caption, color: colors.onDarkMuted },
   gap: { height: spacing.md },
-  footerNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.xl },
+  footerNote: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.xl },
 });

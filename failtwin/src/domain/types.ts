@@ -86,6 +86,8 @@ export interface Prediction {
 
 /** Structured AI output for a generated trap problem. */
 export interface TrapProblem {
+  /** Explicit misconception answers used by the deterministic Mock evaluator. */
+  targetedWrongAnswers?: string[];
   subject: Subject;
   topic: string;
   question: string;
@@ -99,6 +101,8 @@ export interface TrapProblem {
 }
 
 export interface MistakeRecord {
+  beforeScore?: number | null;
+  afterScore?: number | null;
   id: string;
   userId: string;
   problemId: string;
@@ -112,6 +116,9 @@ export interface MistakeRecord {
 }
 
 export interface TrapResult {
+  topic?: string;
+  beforeScore?: number | null;
+  afterScore?: number | null;
   id: string;
   userId: string;
   trapProblemId: string;

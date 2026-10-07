@@ -1,34 +1,47 @@
-import type { Problem, Attempt, MistakeAnalysis, TrapProblem, ErrorType } from '@/domain/types';
+import type { Problem, Attempt, TrapProblem, ErrorType } from '@/domain/types';
+import { getKV, type KVStore } from '@/storage/kv';
 
-/**
- * Ephemeral in-memory store for passing rich objects between screens during a
- * single practice/trap flow (Expo Router params only carry primitives well).
- * Not persisted — the durable data lives in storage repositories.
- */
 interface SessionData {
   currentProblem?: Problem;
   currentAttempt?: Attempt;
-  currentAnalysis?: MistakeAnalysis;
   currentTrap?: TrapProblem;
+  trapAttempt?: Attempt;
   trapTarget?: ErrorType;
+  trapId?: string;
 }
 
-const data: SessionData = {};
+/** Per-user flow snapshot, restored before routes mount. Durable outcomes live in repositories. */
+export class SessionStore {
+  private data: SessionData = {};
+  private userId: string | null = null;
+  constructor(private store: () => KVStore = getKV) {}
 
-export const sessionStore = {
-  set<K extends keyof SessionData>(key: K, value: SessionData[K]): void {
-    data[key] = value;
-  },
-  get<K extends keyof SessionData>(key: K): SessionData[K] {
-    return data[key];
-  },
-  clearPractice(): void {
-    delete data.currentProblem;
-    delete data.currentAttempt;
-    delete data.currentAnalysis;
-  },
-  clearTrap(): void {
-    delete data.currentTrap;
-    delete data.trapTarget;
-  },
-};
+  async bind(userId: string | null): Promise<void> {
+    if (this.userId === userId) return;
+    if (!userId) { this.data = {}; this.userId = null; return; }
+    const raw = await this.store().getItem(`ft:${userId}:session`);
+    try { this.data = raw ? JSON.parse(raw) as SessionData : {}; }
+    catch { this.data = {}; }
+    this.userId = userId;
+  }
+  get<K extends keyof SessionData>(key: K): SessionData[K] { return this.data[key]; }
+  async set<K extends keyof SessionData>(key: K, value: SessionData[K]): Promise<void> {
+    await this.save({ ...this.data, [key]: value });
+  }
+  async startPractice(problem: Problem): Promise<void> {
+    const rest = { ...this.data };
+    delete rest.currentAttempt;
+    await this.save({ ...rest, currentProblem: problem });
+  }
+  async startTrap(trap: TrapProblem, id: string): Promise<void> {
+    const rest = { ...this.data };
+    delete rest.trapAttempt;
+    await this.save({ ...rest, currentTrap: trap, trapTarget: trap.targetErrorType, trapId: id });
+  }
+  async clear(): Promise<void> { await this.save({}); }
+  private async save(next: SessionData): Promise<void> {
+    if (this.userId) await this.store().setItem(`ft:${this.userId}:session`, JSON.stringify(next));
+    this.data = next;
+  }
+}
+export const sessionStore = new SessionStore();

@@ -37,6 +37,12 @@ function trap(hit: boolean, solved: boolean): TrapResult {
 }
 
 describe('report', () => {
+  it('keeps exact observed ratios until the UI formats percentages', () => {
+    expect(hitRate([trap(true, false), trap(false, true), trap(false, true)])).toBe(1 / 3);
+  });
+  it('does not invent historical weeks for a new user', () => {
+    expect(buildReport([], [], [], 4, NOW).recurrenceTrend).toEqual([]);
+  });
   it('hitRate computes prediction accuracy', () => {
     expect(hitRate([])).toBe(0);
     expect(hitRate([trap(true, false), trap(false, true)])).toBe(0.5);
@@ -50,7 +56,8 @@ describe('report', () => {
       mistake(6, false, 'sign_error'),
     ];
     const trend = weeklyRecurrence(mistakes, 4, NOW);
-    expect(trend).toHaveLength(4);
+    expect(trend).toHaveLength(3);
+    expect(trend.map((w) => w.recurrenceRate)).toEqual([0, 1, 0]);
     const total = trend.reduce((a, w) => a + w.recurrenceRate, 0);
     expect(total).toBeGreaterThanOrEqual(0);
   });

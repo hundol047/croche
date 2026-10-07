@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { ErrorState } from '@/components/ErrorState';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { ConfidenceSelector } from '@/components/ConfidenceSelector';
@@ -19,6 +20,8 @@ export default function Solve() {
   const problem = sessionStore.get('currentProblem');
 
   const [answer, setAnswer] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
   const [reasoning, setReasoning] = useState('');
   const [confidence, setConfidence] = useState<Confidence>('medium');
 
@@ -26,12 +29,15 @@ export default function Solve() {
     return (
       <Screen>
         <Body>문제를 불러오지 못했어요.</Body>
-        <Button label="돌아가기" variant="ghost" onPress={() => router.back()} />
+        <Button label="돌아가기" variant="ghost" onPress={() => router.navigate('/practice')} />
       </Screen>
     );
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (!profile || busy) return;
+    setBusy(true);
+    setError(false);
     const attempt: Attempt = {
       id: uid('attempt'),
       userId: profile?.userId ?? 'anon',
@@ -41,14 +47,17 @@ export default function Solve() {
       confidence,
       createdAt: nowIso(),
     };
-    sessionStore.set('currentAttempt', attempt);
-    router.push('/analysis');
+    try {
+      await sessionStore.set('currentAttempt', attempt);
+      router.push('/analysis');
+    } catch { setError(true); }
+    finally { setBusy(false); }
   };
 
   return (
     <Screen>
       <View style={styles.topRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" accessibilityLabel="문제 목록으로 돌아가기" onPress={() => router.navigate('/practice')} hitSlop={12}>
           <Text style={styles.back}>←</Text>
         </Pressable>
         <Caption>{problem.subject} · {problem.topic}</Caption>
@@ -93,8 +102,9 @@ export default function Solve() {
         <ConfidenceSelector value={confidence} onChange={setConfidence} />
       </View>
 
+      {error ? <ErrorState message="답을 저장하지 못했어요. 다시 시도해주세요." onRetry={submit} /> : null}
       <View style={styles.submit}>
-        <Button label="제출하고 AI 분석 받기" onPress={submit} disabled={answer.trim().length === 0} testID="submit-answer" />
+        <Button label="제출하고 AI 분석 받기" onPress={submit} loading={busy} disabled={answer.trim().length === 0} testID="submit-answer" />
       </View>
     </Screen>
   );

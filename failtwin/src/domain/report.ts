@@ -20,7 +20,10 @@ export function buildReport(
   weeks = 4,
   at: string = nowIso(),
 ): LearningReport {
-  const recurrenceTrend = weeklyRecurrence(mistakes, weeks, at);
+  const recurrenceTrend = weeklyRecurrence([
+    ...mistakes,
+    ...trapResults.map((t) => ({ isCorrect: t.solvedCorrectly, errorType: t.actualErrorType, createdAt: t.createdAt })),
+  ], weeks, at);
   const predictionHitRate = hitRate(trapResults);
   const correctedCount = countCorrected(mistakes, trapResults);
   const improved = mostImproved(entries);
@@ -40,7 +43,7 @@ export function buildReport(
 
 /** Recurrence rate per week = (repeat mistakes) / (total mistakes) that week. */
 export function weeklyRecurrence(
-  mistakes: MistakeRecord[],
+  mistakes: Pick<MistakeRecord, 'isCorrect' | 'errorType' | 'createdAt'>[],
   weeks: number,
   at: string = nowIso(),
 ): WeeklyRecurrence[] {
@@ -53,14 +56,16 @@ export function weeklyRecurrence(
     const end = nowMs - w * 7 * 24 * 60 * 60 * 1000;
     const inWeek = mistakes.filter((m) => {
       const t = new Date(m.createdAt).getTime();
-      return t >= start && t < end && !m.isCorrect && m.errorType;
+      return t >= start && (w === 0 ? t <= end : t < end) && !m.isCorrect && m.errorType;
     });
+    inWeek.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (inWeek.length === 0) continue;
     let repeats = 0;
     for (const m of inWeek) {
       if (m.errorType && seenTypes.has(m.errorType)) repeats += 1;
       if (m.errorType) seenTypes.add(m.errorType);
     }
-    const rate = inWeek.length === 0 ? 0 : round1(repeats / inWeek.length);
+    const rate = inWeek.length === 0 ? 0 : repeats / inWeek.length;
     out.push({ weekLabel: `W${weeks - w}`, recurrenceRate: rate });
   }
   return out;
@@ -69,7 +74,7 @@ export function weeklyRecurrence(
 export function hitRate(trapResults: TrapResult[]): number {
   if (trapResults.length === 0) return 0;
   const hits = trapResults.filter((t) => t.predictionHit).length;
-  return round1(hits / trapResults.length);
+  return hits / trapResults.length;
 }
 
 function countCorrected(mistakes: MistakeRecord[], trapResults: TrapResult[]): number {

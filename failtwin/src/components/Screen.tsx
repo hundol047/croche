@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View, StyleSheet, ViewStyle } from 'react-native';
+import { ScrollView, View, StyleSheet, ViewStyle, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/constants/theme';
 
@@ -18,10 +18,11 @@ interface ScreenProps {
  */
 export function Screen({ children, scroll = true, padded = true, style, footer }: ScreenProps) {
   const content = (
-    <View style={[padded ? styles.padded : undefined, style]}>{children}</View>
+    <View style={[styles.column, padded ? styles.padded : undefined, style]}>{children}</View>
   );
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} enabled={Platform.OS !== 'web'}>
       {scroll ? (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -34,6 +35,7 @@ export function Screen({ children, scroll = true, padded = true, style, footer }
         <View style={styles.flex}>{content}</View>
       )}
       {footer ? <View style={styles.footer}>{footer}</View> : null}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -42,6 +44,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   scrollContent: { paddingBottom: spacing.xxxl },
+  column: { width: '100%', maxWidth: 600, alignSelf: 'center' },
   padded: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
   footer: {
     paddingHorizontal: spacing.xl,

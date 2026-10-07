@@ -72,6 +72,8 @@ declare module 'react-native' {
   export interface PressableProps extends Omit<ViewProps, 'style'> {
     style?: unknown | ((state: { pressed: boolean }) => unknown);
   }
+  export const Platform: { OS: string; select<T>(values: Record<string, T>): T };
+  export const KeyboardAvoidingView: Comp;
   export const View: Comp;
   export const Text: Comp;
   export const ScrollView: Comp;
@@ -123,10 +125,15 @@ declare module 'react-native-svg' {
 
 declare module 'expo-router' {
   export function useRouter(): {
-    push: (href: string) => void;
+    push: (href: string | { pathname: string; params?: Record<string, string> }) => void;
     replace: (href: string) => void;
     back: () => void;
+    navigate: (href: string) => void;
+    dismissAll: () => void;
+    canDismiss: () => boolean;
   };
+  export function useSegments(): string[];
+  export function useLocalSearchParams<T>(): T;
   export function useFocusEffect(cb: () => void | (() => void)): void;
   export const Redirect: (p: { href: string }) => JSX.Element;
   export const Stack: ((p: { children?: ReactNode; screenOptions?: unknown }) => JSX.Element) & {

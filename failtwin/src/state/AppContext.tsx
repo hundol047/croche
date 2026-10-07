@@ -9,11 +9,14 @@ import React, {
 } from 'react';
 import { makeRepositories, type Repositories } from '@/storage/repositories';
 import { getAIService, type CrocheAIService } from '@/services/ai';
+import { sessionStore } from './sessionStore';
 import { ToolRunner } from '@/services/ai/tools';
 import type { UserProfile, ErrorDnaEntry, MistakeRecord, TrapResult } from '@/domain/types';
 
 interface AppState {
   ready: boolean;
+  bootstrapError: boolean;
+  retryBootstrap: () => Promise<void>;
   profile: UserProfile | null;
   dna: ErrorDnaEntry[];
   mistakes: MistakeRecord[];
@@ -21,7 +24,7 @@ interface AppState {
   repos: Repositories;
   ai: CrocheAIService;
   tools: ToolRunner;
-  setProfile: (p: UserProfile | null) => void;
+  setProfile: (p: UserProfile | null) => Promise<void>;
   refresh: () => Promise<void>;
   resetAll: () => Promise<void>;
 }
@@ -36,6 +39,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const tools = useMemo(() => new ToolRunner(repos, ai), [repos, ai]);
 
   const [ready, setReady] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState(false);
   const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [dna, setDna] = useState<ErrorDnaEntry[]>([]);
   const [mistakes, setMistakes] = useState<MistakeRecord[]>([]);
@@ -43,11 +47,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadFor = useCallback(
     async (userId: string) => {
-      const [d, m, t] = await Promise.all([
-        repos.dna.get(userId),
-        repos.mistakes.get(userId),
-        repos.traps.get(userId),
-      ]);
+      const { dna: d, mistakes: m, traps: t } = await repos.learning.get(userId);
       setDna(d);
       setMistakes(m);
       setTraps(t);
@@ -57,31 +57,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     const p = await repos.profile.getActive();
-    setProfileState(p);
+    await sessionStore.bind(p?.userId ?? null);
     if (p) await loadFor(p.userId);
     else {
       setDna([]);
       setMistakes([]);
       setTraps([]);
     }
+    setProfileState(p);
   }, [repos, loadFor]);
 
-  useEffect(() => {
-    (async () => {
-      await refresh();
-      setReady(true);
-    })();
+  const retryBootstrap = useCallback(async () => {
+    setBootstrapError(false);
+    try { await refresh(); setReady(true); }
+    catch { setBootstrapError(true); }
   }, [refresh]);
 
-  const setProfile = useCallback(
-    (p: UserProfile | null) => {
-      setProfileState(p);
-      if (p) void loadFor(p.userId);
-    },
-    [loadFor],
-  );
+  useEffect(() => { void retryBootstrap(); }, [retryBootstrap]);
+
+  const setProfile = useCallback(async (p: UserProfile | null) => {
+    await sessionStore.bind(p?.userId ?? null);
+    if (p) await loadFor(p.userId);
+    setProfileState(p);
+  }, [loadFor]);
 
   const resetAll = useCallback(async () => {
+    await sessionStore.clear();
+    await sessionStore.bind(null);
     await repos.profile.clearActive();
     setProfileState(null);
     setDna([]);
@@ -91,6 +93,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const value: AppState = {
     ready,
+    bootstrapError,
+    retryBootstrap,
     profile,
     dna,
     mistakes,
