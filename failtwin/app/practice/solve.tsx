@@ -6,6 +6,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { ConfidenceSelector } from '@/components/ConfidenceSelector';
+import { ArrowIcon } from '@/components/icons';
 import { Title, Body, Caption } from '@/components/typography';
 import { colors, radius, spacing, typography } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
@@ -58,9 +59,9 @@ export default function Solve() {
     <Screen>
       <View style={styles.topRow}>
         <Pressable accessibilityRole="button" accessibilityLabel="문제 목록으로 돌아가기" onPress={() => router.navigate('/practice')} hitSlop={12}>
-          <Text style={styles.back}>←</Text>
+          <View style={styles.back}><ArrowIcon direction="left" /></View>
         </Pressable>
-        <Caption>{problem.subject} · {problem.topic}</Caption>
+        <Caption style={styles.context}>{problem.subject} · {problem.topic}</Caption>
       </View>
 
       <Card>
@@ -90,7 +91,7 @@ export default function Solve() {
       <Caption style={styles.spacer}>풀이 과정 (선택)</Caption>
       <TextInput
         style={[styles.input, styles.multiline]}
-        placeholder="어떻게 풀었는지 적으면 AI가 실수 원인을 더 정확히 분석해요."
+        placeholder="어떤 조건을 확인했는지 함께 적어주세요."
         placeholderTextColor={colors.textFaint}
         value={reasoning}
         onChangeText={setReasoning}
@@ -104,7 +105,7 @@ export default function Solve() {
 
       {error ? <ErrorState message="답을 저장하지 못했어요. 다시 시도해주세요." onRetry={submit} /> : null}
       <View style={styles.submit}>
-        <Button label="제출하고 AI 분석 받기" onPress={submit} loading={busy} disabled={answer.trim().length === 0} testID="submit-answer" />
+        <Button label="답 제출하고 분석 보기" onPress={submit} loading={busy} disabled={answer.trim().length === 0} testID="submit-answer" />
       </View>
     </Screen>
   );
@@ -112,8 +113,9 @@ export default function Solve() {
 
 const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-  back: { fontSize: 24, color: colors.text, marginRight: spacing.md },
-  qTitle: { fontSize: 18, marginBottom: spacing.sm },
+  back: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
+  context: { flex: 1 },
+  qTitle: { ...typography.section, marginBottom: spacing.sm },
   prompt: { ...typography.body, color: colors.text, lineHeight: 24 },
   options: { marginTop: spacing.md },
   option: { ...typography.body, color: colors.text, marginBottom: 4 },
@@ -124,7 +126,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     minHeight: 48,

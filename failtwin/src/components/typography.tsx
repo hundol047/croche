@@ -3,7 +3,7 @@ import { Text, StyleSheet, TextStyle, View } from 'react-native';
 import { colors, spacing, typography } from '@/constants/theme';
 
 export function Title({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
-  return <Text style={[styles.title, style]}>{children}</Text>;
+  return <Text accessibilityRole="header" style={[styles.title, style]}>{children}</Text>;
 }
 
 export function SectionTitle({
@@ -15,7 +15,7 @@ export function SectionTitle({
 }) {
   return (
     <View style={styles.sectionRow}>
-      <Text style={styles.section}>{children}</Text>
+      <Text style={styles.section} accessibilityRole="header">{children}</Text>
       {right}
     </View>
   );

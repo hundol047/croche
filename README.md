@@ -12,7 +12,7 @@ npm ci
 npm run web -- --offline
 ```
 
-온보딩의 **⚡ 심사용 빠른 데모**로 시작하세요.
+온보딩의 **심사용 빠른 데모**로 시작하세요.
 [90–120초 발표 가이드](docs/JUDGE_DEMO.md)는 입력할 정확한 답과 예상 화면을 안내합니다.
 
 현재 런타임은 **Mock AI**이며 Real Croche는 **미연결**입니다.
@@ -21,5 +21,6 @@ npm run web -- --offline
 
 - [실행·기술·테스트·저장 구조](failtwin/README.md)
 - [검증 결과와 제약](docs/QA.md)
+- [디자인 기준과 화면 비교](docs/DESIGN.md)
 - [기존 PR #1](https://github.com/hundol047/croche/pull/1)
 - [설계 문서](.kiro/specs/failtwin/)

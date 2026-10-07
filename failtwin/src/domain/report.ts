@@ -97,12 +97,12 @@ function mostDangerous(entries: ErrorDnaEntry[]): { errorType: ErrorType; score:
 }
 
 /**
- * Non-blaming AI Insight. Describes mistakes as correctable behaviour patterns,
+ * Non-blaming learning note. Describes mistakes as correctable behaviour patterns,
  * never as a judgement of the person's ability (R10 safety).
  */
 export function buildInsight(entries: ErrorDnaEntry[], trapResults: TrapResult[]): string {
   if (entries.length === 0) {
-    return '아직 데이터가 충분하지 않아요. 몇 문제를 풀면 당신만의 실수 패턴을 분석해 드릴게요.';
+    return '풀이 기록이 쌓이면 반복되는 실수 패턴과 다음 연습을 확인할 수 있어요.';
   }
   const sorted = [...entries].sort((a, b) => b.score - a.score);
   const top = sorted[0]!;
@@ -115,16 +115,16 @@ export function buildInsight(entries: ErrorDnaEntry[], trapResults: TrapResult[]
 
   let line1: string;
   if (verifyLike && conceptEntry && verifyLike.score > conceptEntry.score + 10) {
-    line1 = `당신은 개념 부족보다 ${errorTypeLabel(verifyLike.errorType)}을(를) 반복하는 경향이 더 크게 나타납니다.`;
+    line1 = `개념 혼동보다 ${errorTypeLabel(verifyLike.errorType)} 패턴이 두드러집니다.`;
   } else {
-    line1 = `현재 당신에게 가장 두드러지는 패턴은 ${topLabel}입니다. 이는 능력의 문제가 아니라 교정 가능한 습관입니다.`;
+    line1 = `현재 가장 두드러진 패턴은 ${topLabel}입니다. 다음 풀이에서 먼저 확인해보세요.`;
   }
 
   const hits = trapResults.filter((t) => t.predictionHit).length;
   const line2 =
     hits > 0
-      ? `Trap Mode에서 예측이 ${hits}회 적중한 만큼, 답을 확정하기 전에 한 번 더 ${topLabel} 여부를 점검하는 습관을 만들어보세요.`
-      : `문제를 푼 뒤 답을 확정하기 전에 ${topLabel}이(가) 없는지 다시 확인하는 습관을 만들어보세요.`;
+      ? `Trap 훈련에서 예측한 패턴이 ${hits}회 확인됐어요. 다음 답을 확정하기 전에 ${topLabel} 여부를 점검해보세요.`
+      : `다음 문제를 풀고 ${topLabel} 여부를 확인해보세요.`;
 
   return `${line1} ${line2}`;
 }

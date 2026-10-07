@@ -5,12 +5,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { ActionRow } from '@/components/ActionRow';
+import { Section } from '@/components/Section';
 import { TrapCard } from '@/components/TrapCard';
 import { ConfidenceSelector } from '@/components/ConfidenceSelector';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
-import { Title, SectionTitle, Body, Caption } from '@/components/typography';
-import { CheckIcon, TargetIcon } from '@/components/icons';
+import { Title, Body, Caption } from '@/components/typography';
+import { CheckIcon, TargetIcon, ArrowIcon } from '@/components/icons';
 import { colors, radius, spacing, typography } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
 import { useErrorDNA } from '@/state/useErrorDNA';
@@ -103,212 +105,120 @@ export default function Trap() {
   return (
     <Screen>
       <View style={styles.topRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="홈으로 돌아가기" onPress={() => goToMain(router)} hitSlop={12}>
-          <Text style={styles.back}>←</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="홈으로 돌아가기" onPress={() => goToMain(router)} hitSlop={8}>
+          <View style={styles.back}><ArrowIcon direction="left" /></View>
         </Pressable>
-        <Caption>FailTwin의 핵심 기능</Caption>
+        <Caption>실수 패턴 집중 훈련</Caption>
       </View>
-
       <Title>Trap Mode</Title>
-      {phase === 'intro' ? (
-        <>
-          <TrapCard targetErrorType={target}>
-            <Body style={styles.trapIntro}>
-              당신의 Error DNA에서 가장 강한 실수 유형을 골라, 같은 실수를 유발하되 내용은 새로운 문제를
-              AI가 설계합니다. 시험 전에 당신의 실수를 미리 경험하고 교정하세요.
-            </Body>
-          </TrapCard>
-          <Card tone="muted">
-            <Body muted>
-              목표는 당신을 틀리게 만드는 것이 아니라, 반복되는 실수를 <Body>인지하고 교정</Body>하도록 돕는
-              것입니다.
-            </Body>
-          </Card>
-          <Button label="나를 틀리게 만드는 문제 받기" variant="violet" onPress={generate} testID="trap-start" />
-        </>
-      ) : null}
-
-      {phase === 'generating' ? (
-        <LoadingState message="당신이 가장 실수하기 쉬운 문제를 설계하고 있어요" />
-      ) : null}
-
-      {phase === 'error' ? <><ErrorState message="문제 생성이나 저장에 실패했어요." onRetry={generate} /><Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} /></> : null}
+      {phase === 'intro' ? <>
+        <TrapCard targetErrorType={target}>
+          <Body style={styles.trapIntro}>같은 실수 유형을 노리는 새로운 문제를 풀어보세요. 답을 제출하면 패턴을 확인하고 기록에 반영합니다.</Body>
+        </TrapCard>
+        <Body muted style={styles.introNote}>나를 틀리게 만드는 문제로, 시험 전에 반복 패턴을 확인합니다.</Body>
+        <Button label="집중 훈련 시작" variant="trap" onPress={generate} testID="trap-start" />
+      </> : null}
+      {phase === 'generating' ? <LoadingState message="맞춤 문제 준비 중" /> : null}
+      {phase === 'error' ? <><ErrorState message="문제 생성이나 저장에 실패했어요." onRetry={generate} /><ActionRow label="홈으로" onPress={() => goToMain(router)} quiet /></> : null}
       {saveError ? <ErrorState message="결과를 저장하지 못했어요. 다시 시도해주세요." onRetry={submit} /> : null}
 
-      {phase === 'solving' && trap ? (
-        <>
-          <View style={[styles.targetTag, { backgroundColor: colors.violet }]}>
-            <TargetIcon size={16} color={colors.onDark} />
-            <Text style={styles.targetTagText}>타깃: {errorTypeLabel(trap.targetErrorType)}</Text>
-          </View>
-          <Card>
-            <Caption>{trap.subject} · {trap.topic}</Caption>
-            <Text style={styles.question}>{trap.question}</Text>
-            {trap.answerType === 'mcq' && trap.options ? (
-              <View style={styles.options}>
-                {trap.options.map((o) => (
-                  <Text key={o} style={styles.option}>• {o}</Text>
-                ))}
-              </View>
-            ) : null}
-          </Card>
+      {phase === 'solving' && trap ? <>
+        <View style={styles.targetTag}><TargetIcon size={16} /><Text style={styles.targetTagText}>타깃: {errorTypeLabel(trap.targetErrorType)}</Text></View>
+        <Card>
+          <Caption>{trap.subject} · {trap.topic}</Caption>
+          <Text style={styles.question}>{trap.question}</Text>
+          {trap.answerType === 'mcq' && trap.options ? <View style={styles.options}>
+            {trap.options.map((o) => <Text key={o} style={styles.option}>• {o}</Text>)}
+          </View> : null}
+        </Card>
+        <Caption>내 답</Caption>
+        <TextInput style={styles.input} placeholder="답을 입력" placeholderTextColor={colors.textFaint}
+          value={answer} onChangeText={setAnswer} accessibilityLabel="Trap 답 입력" />
+        <Caption style={styles.spacer}>풀이 과정 (선택)</Caption>
+        <TextInput style={[styles.input, styles.multiline]} placeholder="어떤 조건을 확인했는지 함께 적어주세요."
+          placeholderTextColor={colors.textFaint} value={reasoning} onChangeText={setReasoning} multiline accessibilityLabel="Trap 풀이 과정 입력" />
+        <View style={styles.spacer}><ConfidenceSelector value={confidence} onChange={setConfidence} /></View>
+        <View style={styles.spacer}><Button label="제출" variant="trap" onPress={submit} loading={busy}
+          disabled={answer.trim().length === 0} testID="trap-submit" /></View>
+      </> : null}
 
-          <Caption>내 답</Caption>
-          <TextInput
-            style={styles.input}
-            placeholder="답을 입력"
-            placeholderTextColor={colors.textFaint}
-            value={answer}
-            onChangeText={setAnswer}
-            accessibilityLabel="Trap 답 입력"
-          />
-          <Caption style={styles.spacer}>풀이 과정 (선택)</Caption>
-          <TextInput
-            style={[styles.input, styles.multiline]}
-            placeholder="풀이를 적으면 예측 적중 판정이 더 정확해져요."
-            placeholderTextColor={colors.textFaint}
-            value={reasoning}
-            onChangeText={setReasoning}
-            multiline
-            accessibilityLabel="Trap 풀이 과정 입력"
-          />
-          <View style={styles.spacer}>
-            <ConfidenceSelector value={confidence} onChange={setConfidence} />
-          </View>
-          <View style={styles.spacer}>
-            <Button label="제출" variant="violet" onPress={submit} loading={busy} disabled={answer.trim().length === 0} testID="trap-submit" />
-          </View>
-        </>
-      ) : null}
-
-      {phase === 'result' && trap && result ? (
-        <TrapResult
-          trap={trap}
-          result={result}
-          onRetry={generate}
-          onHome={() => goToMain(router)}
-          onReport={() => goToMain(router, '/(tabs)/report')}
-        />
-      ) : null}
+      {phase === 'result' && trap && result ? <TrapResult trap={trap} result={result} onRetry={generate}
+        onHome={() => goToMain(router)} onReport={() => goToMain(router, '/(tabs)/report')} /> : null}
     </Screen>
   );
 }
 
-function TrapResult({
-  trap,
-  result,
-  onRetry,
-  onHome,
-  onReport,
-}: {
-  trap: TrapProblem;
-  result: StoredTrapResult;
-  onRetry: () => void;
-  onHome: () => void;
-  onReport: () => void;
+function TrapResult({ trap, result, onRetry, onHome, onReport }: {
+  trap: TrapProblem; result: StoredTrapResult; onRetry: () => void; onHome: () => void; onReport: () => void;
 }) {
   const { solvedCorrectly, predictionHit } = result;
-  const scale = useRef(new Animated.Value(0.8)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 6 }).start();
-  }, [scale]);
+    Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [opacity]);
+  const accent = solvedCorrectly ? colors.success : predictionHit ? colors.warning : colors.brand;
+  const bannerTitle = solvedCorrectly ? 'Trap 극복' : predictionHit ? '예측 적중 (Prediction HIT)' : '함께 교정해봐요';
 
-  const bannerColor = solvedCorrectly ? colors.success : predictionHit ? colors.violet : colors.indigo;
-  const bannerTitle = solvedCorrectly ? 'Trap 극복! 🎉' : predictionHit ? '예측 적중 (Prediction HIT)' : '함께 교정해봐요';
+  return <>
+    <Animated.View style={[styles.resultBanner, { opacity, borderLeftColor: accent,
+      backgroundColor: solvedCorrectly ? colors.successTint : colors.brandTint }]}>
+      {solvedCorrectly ? <CheckIcon size={22} color={accent} /> : <TargetIcon size={22} color={accent} />}
+      <Text style={styles.resultTitle}>{bannerTitle}</Text>
+    </Animated.View>
 
-  return (
-    <>
-      <Animated.View style={[styles.resultBanner, { backgroundColor: bannerColor, transform: [{ scale }] }]}>
-        {solvedCorrectly ? <CheckIcon size={30} color={colors.onDark} /> : <TargetIcon size={28} color={colors.onDark} />}
-        <Text style={styles.resultTitle}>{bannerTitle}</Text>
-      </Animated.View>
-
-      {result.beforeScore != null && result.afterScore != null ? <Card>
-        <SectionTitle>Error DNA 변화</SectionTitle>
+    <Card>
+      {result.beforeScore != null && result.afterScore != null ? <View style={styles.dna}>
+        <Text style={styles.dnaTitle}>Error DNA 변화</Text>
         <Body>{errorTypeLabel(solvedCorrectly ? trap.targetErrorType : result.actualErrorType!)} {Math.round(result.beforeScore)} → {Math.round(result.afterScore)}</Body>
-      </Card> : null}
+      </View> : null}
+      <Section title="이 문제가 노린 실수" first>
+        <Text style={styles.pattern}>{errorTypeLabel(trap.targetErrorType)}</Text>
+        <Body muted>{trap.trapExplanation}</Body>
+      </Section>
+      <Section title="정답과 해설">
+        <Text style={styles.answer}>정답: {trap.correctAnswer}</Text>
+        <Body muted>{trap.explanation}</Body>
+      </Section>
+    </Card>
 
-      <Card>
-        <SectionTitle>이 문제가 노린 실수</SectionTitle>
-        <Body>{errorTypeLabel(trap.targetErrorType)}</Body>
-        <View style={styles.divider} />
-        <Caption>왜 이 문제가 함정인가</Caption>
-        <Body style={styles.trapExp}>{trap.trapExplanation}</Body>
-      </Card>
-
-      <Card tone="muted">
-        <SectionTitle>정답 & 해설</SectionTitle>
-        <Body>정답: {trap.correctAnswer}</Body>
-        <Body muted style={styles.exp}>{trap.explanation}</Body>
-      </Card>
-
-      {solvedCorrectly ? (
-        <Card>
-          <Body>
-            이 유형의 실수를 극복했어요. 학습 기록과 Error DNA에 교정 결과를 반영했습니다. 같은 함정을 반복해 완전히 몸에
-            익혀보세요.
-          </Body>
-        </Card>
-      ) : (
-        <Card>
-          <Body>
-            {predictionHit
-              ? 'AI가 예측한 실수가 실제로 나타났어요. 지금 그 패턴을 인지한 것이 교정의 시작입니다.'
-              : result.actualErrorType ? '예상과는 다른 실수가 관찰됐어요. 해설을 보고 다시 도전해봐요.' : '답만으로는 실수 유형을 확인하기 어려워요. 예측 적중으로 집계하지 않고 해설을 안내합니다.'}
-          </Body>
-        </Card>
-      )}
-
-      <Button label="다시 도전" variant="violet" onPress={onRetry} />
-      <View style={styles.gap} />
+    <Body muted style={styles.resultNote}>{solvedCorrectly
+      ? `이번 문제를 맞혔어요. ${errorTypeLabel(trap.targetErrorType)} 교정 결과를 학습 기록에 반영했습니다.`
+      : predictionHit
+        ? `이번 문제에서도 ${errorTypeLabel(trap.targetErrorType)} 패턴이 나타났어요. 해설을 확인하고 다른 문제로 연습해보세요.`
+        : result.actualErrorType ? '예상과는 다른 실수가 관찰됐어요. 해설을 보고 다시 도전해봐요.'
+        : '답만으로는 실수 유형을 확인하기 어려워요. 예측 적중으로 집계하지 않고 해설을 안내합니다.'}</Body>
+    {solvedCorrectly ? <>
       <Button label="학습 리포트 보기" onPress={onReport} />
-      <View style={styles.gap} />
-      <Button label="홈으로" variant="ghost" onPress={onHome} />
-    </>
-  );
+      <ActionRow label="다시 도전" onPress={onRetry} />
+    </> : <>
+      <Button label="다시 도전" variant="trap" onPress={onRetry} />
+      <ActionRow label="학습 리포트 보기" onPress={onReport} />
+    </>}
+    <ActionRow label="홈으로" onPress={onHome} quiet />
+  </>;
 }
 
 const styles = StyleSheet.create({
-  topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-  back: { fontSize: 24, color: colors.text, marginRight: spacing.md },
-  trapIntro: { color: colors.onDark, lineHeight: 23 },
-  targetTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    marginBottom: spacing.md,
-  },
-  targetTagText: { ...typography.caption, fontSize: 13, fontWeight: '700', color: colors.onDark, marginLeft: spacing.xs },
-  question: { ...typography.body, color: colors.text, lineHeight: 24, marginTop: spacing.sm },
+  topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  back: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
+  trapIntro: { color: colors.onDarkMuted },
+  introNote: { marginBottom: spacing.xl },
+  targetTag: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.lg },
+  targetTagText: { ...typography.caption, color: colors.brand, marginLeft: spacing.sm },
+  question: { ...typography.body, color: colors.text, marginTop: spacing.sm },
   options: { marginTop: spacing.md },
-  option: { ...typography.body, color: colors.text, marginBottom: 4 },
-  input: {
-    ...typography.body,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    minHeight: 48,
-    marginTop: spacing.sm,
-  },
+  option: { ...typography.body, color: colors.text, marginBottom: spacing.xs },
+  input: { ...typography.body, color: colors.text, backgroundColor: colors.surface,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.controlBorder,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md, minHeight: 48, marginTop: spacing.sm },
   multiline: { minHeight: 88, textAlignVertical: 'top' },
   spacer: { marginTop: spacing.lg },
-  resultBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    marginVertical: spacing.lg,
-  },
-  resultTitle: { ...typography.title, color: colors.onDark, marginLeft: spacing.md, flex: 1 },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: spacing.md },
-  trapExp: { marginTop: spacing.xs },
-  exp: { marginTop: spacing.sm, lineHeight: 22 },
-  gap: { height: spacing.md },
+  resultBanner: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.sm, borderLeftWidth: 2,
+    padding: spacing.lg, marginVertical: spacing.lg },
+  resultTitle: { ...typography.section, color: colors.text, marginLeft: spacing.sm, flex: 1 },
+  dna: { borderLeftWidth: 2, borderLeftColor: colors.brand, paddingLeft: spacing.md, marginBottom: spacing.xl },
+  dnaTitle: { ...typography.caption, color: colors.brand, marginBottom: spacing.xs },
+  pattern: { ...typography.bodyStrong, color: colors.text, marginBottom: spacing.sm },
+  answer: { ...typography.bodyStrong, color: colors.text, marginBottom: spacing.sm },
+  resultNote: { marginBottom: spacing.xl },
 });

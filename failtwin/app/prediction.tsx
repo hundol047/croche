@@ -5,10 +5,11 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { ActionRow } from '@/components/ActionRow';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
 import { PredictionCard } from '@/components/PredictionCard';
-import { Title, SectionTitle, Body } from '@/components/typography';
+import { Title, Body } from '@/components/typography';
 import { spacing } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
 import { useErrorDNA } from '@/state/useErrorDNA';
@@ -68,46 +69,26 @@ export default function PredictionScreen() {
 
   return (
     <Screen>
-      <Title>오답 예측</Title>
-      <Body muted style={styles.sub}>
-        현재 Error DNA와 관련 기억을 바탕으로 다음 문제에서 발생할 가능성이 높은 실수를 예측합니다.
-      </Body>
-
-      {phase === 'loading' ? <LoadingState message="당신의 다음 실수를 예측하고 있어요" /> : null}
+      <Title>다음 실수 예측</Title>
+      <Body muted style={styles.sub}>현재 Error DNA 기록을 바탕으로 다음 연습을 고릅니다.</Body>
+      {phase === 'loading' ? <LoadingState message="예측 확인 중" /> : null}
       {phase === 'error' ? <ErrorState message="예측에 실패했습니다." onRetry={run} /> : null}
-
-      {phase === 'empty' ? (
-        <Card>
-          <Body>
-            아직 예측할 데이터가 없어요. 문제를 몇 개 풀면 당신만의 Error DNA가 쌓이고, 그에 맞춘 예측을
-            보여드릴게요.
-          </Body>
-          <Button label="첫 문제 풀기" onPress={() => router.push('/practice')} />
-        </Card>
-      ) : null}
-
-      {phase === 'done' && prediction ? (
-        <>
-          <PredictionCard prediction={prediction} />
-          <SectionTitle>왜 이렇게 예측했나요?</SectionTitle>
-          <Card tone="muted">
-            <Body>{prediction.reason}</Body>
-          </Card>
-          <Button
-            label="🎯 이 실수를 유발하는 Trap 문제 받기"
-            variant="violet"
-            onPress={() => router.push({ pathname: '/trap', params: { target: prediction.predictedErrorType } })}
-          />
-        </>
-      ) : null}
-
+      {phase === 'empty' ? <Card>
+        <Body style={styles.sub}>아직 예측할 기록이 없어요. 문제를 풀면 실수 패턴을 확인할 수 있습니다.</Body>
+        <Button label="첫 문제 풀기" onPress={() => router.push('/practice')} />
+      </Card> : null}
+      {phase === 'done' && prediction ? <>
+        <PredictionCard prediction={prediction} />
+        <Button label="이 유형 훈련하기" variant="trap"
+          onPress={() => router.push({ pathname: '/trap', params: { target: prediction.predictedErrorType } })} />
+      </> : null}
       <View style={styles.gap} />
-      <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
+      <ActionRow label="홈으로" onPress={() => goToMain(router)} quiet />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  sub: { marginBottom: spacing.lg },
-  gap: { height: spacing.md },
+  sub: { marginTop: spacing.sm, marginBottom: spacing.xl },
+  gap: { height: spacing.sm },
 });

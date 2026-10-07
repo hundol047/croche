@@ -67,10 +67,10 @@ export function LineChart({ data, width = 300, height = 160 }: LineChartProps) {
           );
         })}
 
-        <Polyline points={polyline} fill="none" stroke={colors.indigo} strokeWidth={2.5} />
+        <Polyline points={polyline} fill="none" stroke={colors.brand} strokeWidth={1.8} />
 
         {points.map((p, i) => (
-          <Circle key={`pt-dot-${i}`} cx={p.x} cy={p.y} r={4} fill={colors.violet} />
+          <Circle key={`pt-dot-${i}`} cx={p.x} cy={p.y} r={3} fill={colors.brand} />
         ))}
         {points.map((p, i) => (
           <SvgText

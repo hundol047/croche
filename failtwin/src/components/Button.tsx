@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, Text, StyleSheet, ViewStyle, ActivityIndicator, View } from 'react-native';
 import { colors, radius, spacing, typography } from '@/constants/theme';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'violet';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'trap';
 
 interface ButtonProps {
   label: string;
@@ -42,7 +42,7 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'ghost' ? colors.indigo : colors.onDark} />
+        <ActivityIndicator color={variant === 'primary' || variant === 'trap' ? colors.onDark : colors.brand} />
       ) : (
         <View style={styles.content}>
           {icon ? <View style={styles.icon}>{icon}</View> : null}
@@ -54,23 +54,23 @@ export function Button({
 }
 
 const variantStyle: Record<Variant, ViewStyle> = {
-  primary: { backgroundColor: colors.blue },
-  secondary: { backgroundColor: colors.indigo },
-  violet: { backgroundColor: colors.violet },
-  ghost: { backgroundColor: colors.surfaceAlt },
+  primary: { backgroundColor: colors.brand },
+  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.controlBorder },
+  trap: { backgroundColor: colors.ink },
+  ghost: { backgroundColor: 'transparent' },
 };
 
 const labelStyle = StyleSheet.create({
   primary: { color: colors.onDark },
-  secondary: { color: colors.onDark },
-  violet: { color: colors.onDark },
-  ghost: { color: colors.indigo },
+  secondary: { color: colors.brand },
+  trap: { color: colors.onDark },
+  ghost: { color: colors.brand },
 });
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
-    borderRadius: radius.md,
+    minHeight: 48,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   },
   content: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   icon: { marginRight: spacing.sm },
-  label: { ...typography.bodyStrong, fontSize: 16, textAlign: 'center', flexShrink: 1 },
+  label: { ...typography.bodyStrong, textAlign: 'center', flexShrink: 1 },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
 });

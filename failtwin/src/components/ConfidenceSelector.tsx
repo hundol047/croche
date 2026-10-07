@@ -25,7 +25,6 @@ export function ConfidenceSelector({ value, onChange }: ConfidenceSelectorProps)
           <Pill
             key={o.key}
             label={o.label}
-            tone="blue"
             selected={value === o.key}
             onPress={() => onChange(o.key)}
           />

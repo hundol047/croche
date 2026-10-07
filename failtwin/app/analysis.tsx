@@ -5,9 +5,11 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { ActionRow } from '@/components/ActionRow';
+import { Section } from '@/components/Section';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
-import { Title, SectionTitle, Body, Caption } from '@/components/typography';
+import { Title, Body, Caption } from '@/components/typography';
 import { CheckIcon, TargetIcon } from '@/components/icons';
 import { colors, radius, spacing, typography, scoreColor } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
@@ -72,7 +74,7 @@ export default function Analysis() {
   if (phase === 'loading') {
     return (
       <Screen>
-        <LoadingState message="당신의 풀이 패턴을 분석하고 있어요" />
+        <LoadingState message="풀이 분석 중" />
       </Screen>
     );
   }
@@ -91,98 +93,59 @@ export default function Analysis() {
 
   return (
     <Screen>
-      <Title>AI 오답 분석</Title>
-
-      {/* 정답 여부 */}
-      <View style={[styles.verdict, { backgroundColor: correct ? colors.success : colors.indigo }]}>
-        {correct ? <CheckIcon size={26} color={colors.onDark} /> : <TargetIcon size={24} color={colors.onDark} />}
-        <Text style={styles.verdictText}>{correct ? '정답입니다!' : '오답이에요 — 함께 교정해봐요'}</Text>
+      <Caption>{problem.subject} · {problem.topic}</Caption>
+      <Title style={styles.title}>풀이 분석</Title>
+      <View style={styles.verdict}>
+        {correct ? <CheckIcon size={22} color={colors.success} /> : <TargetIcon size={22} color={accent} />}
+        <Text style={[styles.verdictText, { color: correct ? colors.success : colors.text }]}>
+          {correct ? '정답입니다!' : '오답 · 함께 확인해봐요'}
+        </Text>
       </View>
 
-      {!correct && analysis.errorType ? (
-        <Card>
-          <SectionTitle>핵심 실수 유형</SectionTitle>
-          <View style={[styles.typeBadge, { backgroundColor: accent }]}>
-            <Text style={styles.typeBadgeText}>
-              {errorTypeLabel(analysis.errorType)}
-            </Text>
-          </View>
-        </Card>
-      ) : null}
-
-      {/* Error DNA 변화 */}
-      {beforeScore !== null && afterScore !== null && (analysis.errorType || problem?.targetErrorType) ? (
-        <Card>
-          <SectionTitle>Error DNA 변화</SectionTitle>
-          <View style={styles.dnaChange}>
-            <Text style={styles.dnaLabel}>
-              {errorTypeLabel(analysis.errorType ?? problem!.targetErrorType!)}
-            </Text>
-            <Text style={styles.dnaDelta}>
-              {Math.round(beforeScore)} <Text style={styles.arrow}>→</Text>{' '}
-              <Text style={{ color: afterScore >= beforeScore ? colors.danger : colors.success }}>
-                {Math.round(afterScore)}
-              </Text>
-            </Text>
-          </View>
-        </Card>
-      ) : null}
-
       <Card>
-        <SectionTitle>{correct ? '잘한 점' : '실수 원인'}</SectionTitle>
-        <Body>{analysis.reason}</Body>
-      </Card>
+        {!correct && analysis.errorType ? <View style={styles.errorType}>
+          <Caption>이번 풀이에서 확인한 실수</Caption>
+          <Text style={styles.pattern}>{errorTypeLabel(analysis.errorType)}</Text>
+        </View> : null}
 
-      {analysis.evidence.length > 0 ? (
-        <Card tone="muted">
-          <SectionTitle>근거</SectionTitle>
-          {analysis.evidence.map((e, i) => (
-            <Text key={i} style={styles.evidence}>• {e}</Text>
-          ))}
-        </Card>
-      ) : null}
-
-      <Card>
-        <SectionTitle>교정 전략</SectionTitle>
-        <Body>{analysis.correctionStrategy}</Body>
-      </Card>
-
-      {!correct ? (
-        <Card>
-          <SectionTitle right={<Caption>0 → 100</Caption>}>다음 문제 재발 위험도</SectionTitle>
-          <View style={styles.riskRow}>
-            <Text style={[styles.riskScore, { color: accent }]}>{Math.round(analysis.recurrenceRisk)}</Text>
-            <Caption>AI 예측 점수</Caption>
+        {beforeScore !== null && afterScore !== null && (analysis.errorType || problem.targetErrorType) ? <View style={styles.dna}>
+          <Text style={styles.dnaTitle}>Error DNA 변화</Text>
+          <View style={styles.dnaRow}>
+            <Text style={styles.dnaLabel}>{errorTypeLabel(analysis.errorType ?? problem.targetErrorType!)}</Text>
+            <Text style={styles.dnaDelta}>{Math.round(beforeScore)} → <Text style={{ color: afterScore < beforeScore ? colors.success : colors.warning }}>{Math.round(afterScore)}</Text></Text>
           </View>
-        </Card>
-      ) : null}
+        </View> : null}
+
+        <Section title={correct ? '잘한 점' : '실수 원인'} first><Body>{analysis.reason}</Body></Section>
+        {analysis.evidence.length > 0 ? <Section title="근거">
+          {analysis.evidence.map((e, i) => <Text key={i} style={styles.evidence}>• {e}</Text>)}
+        </Section> : null}
+        <Section title="다음에 확인할 것"><Body>{analysis.correctionStrategy}</Body></Section>
+        {!correct ? <Section title="다음 문제 재발 위험도">
+          <View style={styles.riskRow}><Text style={[styles.riskScore, { color: accent }]}>{Math.round(analysis.recurrenceRisk)} / 100</Text><Caption>위험 점수 · 확률이 아닙니다</Caption></View>
+        </Section> : null}
+      </Card>
 
       <Button label="다음 실수 예측 보기" onPress={() => router.push('/prediction')} />
-      <View style={styles.gap} />
-      <Button label="🎯 Trap Challenge 시작" variant="violet" onPress={() => router.push('/trap')} />
-      <View style={styles.gap} />
-      <Button label="홈으로" variant="ghost" onPress={() => goToMain(router)} />
+      <ActionRow label="실수 패턴 훈련하기" hint="Trap Mode" onPress={() => router.push('/trap')} />
+      <ActionRow label="홈으로" onPress={() => goToMain(router)} quiet />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  verdict: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginVertical: spacing.lg,
-  },
-  verdictText: { flex: 1, ...typography.section, color: colors.onDark, marginLeft: spacing.md },
-  typeBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 8 },
-  typeBadgeText: { ...typography.bodyStrong, color: colors.onDark },
-  evidence: { ...typography.caption, fontSize: 13, color: colors.textMuted, lineHeight: 20, marginBottom: 4 },
-  riskRow: { flexDirection: 'row', alignItems: 'baseline' },
-  riskScore: { fontSize: 44, fontWeight: '800', marginRight: spacing.md, fontVariant: ['tabular-nums'] },
-  dnaChange: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dnaLabel: { ...typography.bodyStrong, color: colors.text },
-  dnaDelta: { ...typography.title, color: colors.textMuted, fontVariant: ['tabular-nums'] },
-  arrow: { color: colors.textFaint },
-  gap: { height: spacing.md },
+  title: { marginTop: spacing.xs },
+  verdict: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
+  verdictText: { flex: 1, ...typography.bodyStrong, marginLeft: spacing.sm },
+  errorType: { marginBottom: spacing.lg },
+  pattern: { ...typography.section, color: colors.text, marginTop: spacing.xs },
+  dna: { backgroundColor: colors.brandTint, borderRadius: radius.sm, borderLeftWidth: 2,
+    borderLeftColor: colors.brand, padding: spacing.md, marginBottom: spacing.xl },
+  dnaTitle: { ...typography.caption, color: colors.brand, marginBottom: spacing.xs },
+  dnaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dnaLabel: { ...typography.body, color: colors.text, flex: 1, marginRight: spacing.sm },
+  dnaDelta: { ...typography.section, color: colors.textMuted, fontVariant: ['tabular-nums'] },
+  evidence: { ...typography.body, fontSize: 13, color: colors.textMuted, lineHeight: 22, marginBottom: spacing.xs },
+  riskRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between' },
+  riskScore: { ...typography.bodyStrong, fontVariant: ['tabular-nums'], marginRight: spacing.md },
 });

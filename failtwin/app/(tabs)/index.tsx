@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { ActionRow } from '@/components/ActionRow';
 import { ErrorDnaBars } from '@/components/ErrorDnaBars';
-import { Title, SectionTitle, Body, Caption } from '@/components/typography';
-import { DnaIcon, TargetIcon, Sparkle } from '@/components/icons';
-import { colors, radius, spacing, typography, riskColor } from '@/constants/theme';
+import { Title, SectionTitle, Caption } from '@/components/typography';
+import { DnaIcon, TargetIcon } from '@/components/icons';
+import { colors, spacing, typography } from '@/constants/theme';
 import { resetDemo } from '@/state/onboarding';
 import { sessionStore } from '@/state/sessionStore';
 import { ErrorState } from '@/components/ErrorState';
@@ -48,131 +49,53 @@ export default function Home() {
 
   return (
     <Screen>
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <Caption>FailTwin · AI가 당신의 실수를 먼저 예측합니다</Caption>
-          <Title>{profile?.name ?? '학습자'}님</Title>
-          <View style={styles.badgeRow}>
-            <ModeBadge status={getServiceStatus()} />
-          </View>
-        </View>
-        <View style={styles.logoBadge}>
-          <DnaIcon size={26} color={colors.onDark} />
-        </View>
-      </View>
+      <View style={styles.brandRow}><DnaIcon size={20} /><Text style={styles.brand}>FailTwin</Text><View style={styles.mode}><ModeBadge status={getServiceStatus()} /></View></View>
+      <Caption>{profile?.name ?? '학습자'}님 · {profile?.goal ?? '학습 기록'}</Caption>
+      <Title style={styles.title}>오늘의 학습 상태</Title>
 
-      {/* 오늘의 학습 진단 */}
       <Card>
-        <SectionTitle
-          right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : null}
-        >
-          오늘의 학습 진단
-        </SectionTitle>
-        {hasData ? (
-          <>
-            <Body muted>
-              당신의 Error DNA는 지금까지의 풀이에서 반복된 실수 패턴을 보여줍니다.
-            </Body>
-            <View style={styles.dnaBlock}>
-              <ErrorDnaBars entries={dna} />
-            </View>
-          </>
-        ) : (
-          <EmptyState
-            title="아직 Error DNA가 없어요"
-            description="문제를 풀면 당신이 어떻게 틀리는지를 AI가 학습해 나만의 실수 패턴(Error DNA)을 만들어 드려요."
-            ctaLabel="첫 문제 풀기"
-            onCta={() => router.push('/practice')}
-          />
-        )}
+        <SectionTitle right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : null}>Error DNA</SectionTitle>
+        {hasData ? <>
+          <Caption>{profile?.isDemo ? '예시 기록' : '풀이 기록'} · 위험 점수 0–100</Caption>
+          <View style={styles.dnaBlock}><ErrorDnaBars entries={dna} /></View>
+        </> : <EmptyState title="아직 Error DNA가 없어요" description="문제를 풀면 나만의 실수 패턴이 여기에 기록됩니다." />}
       </Card>
 
-      {/* 다음 실수 예측 */}
-      {prediction ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="다음 실수 예측 보기" onPress={() => router.push('/prediction')}>
-          <View style={[styles.predictBanner, { backgroundColor: riskColor(prediction.riskScore) }]}>
-            <View style={styles.predictLeft}>
-              <TargetIcon size={22} color={colors.onDark} />
-              <View style={styles.predictText}>
-                <Text style={styles.predictCaption}>다음 문제에서 가장 가능성 높은 실수</Text>
-                <Text style={styles.predictValue}>
-                  {errorTypeLabel(prediction.predictedErrorType)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.predictScoreWrap}>
-              <Text style={styles.predictScore}>{Math.round(prediction.riskScore)}</Text>
-              <Text style={styles.predictScoreCap}>위험도</Text>
-            </View>
-          </View>
-        </Pressable>
-      ) : null}
+      <Button label={hasData ? '문제 풀기' : '첫 문제 풀기'} onPress={() => router.push('/practice')} testID="go-practice" />
 
-      {/* 액션 */}
-      <SectionTitle>무엇을 할까요?</SectionTitle>
-      <Button label="문제 풀기" onPress={() => router.push('/practice')} testID="go-practice" />
-      <View style={styles.gap} />
-      <Button
-        label="🎯 Trap Challenge 시작"
-        variant="violet"
-        onPress={() => router.push('/trap')}
-        testID="go-trap"
-      />
-      <View style={styles.gap} />
-      <Button
-        label="오답 예측 보기"
-        variant="ghost"
-        onPress={() => router.push('/prediction')}
-      />
+      <View style={styles.next}>
+        {prediction ? <>
+          <View style={styles.patternRow}><TargetIcon size={18} /><Text style={styles.patternCaption}>다음에 확인할 패턴</Text></View>
+          <Text style={styles.pattern}>{errorTypeLabel(prediction.predictedErrorType)}</Text>
+          <Caption>위험 점수 {Math.round(prediction.riskScore)} / 100 · 기록에 기반한 예측</Caption>
+        </> : <SectionTitle>다음 학습</SectionTitle>}
+        <ActionRow label={prediction ? `${errorTypeLabel(prediction.predictedErrorType)} 훈련하기` : '실수 패턴 훈련하기'}
+          hint="Trap Mode · 같은 패턴을 새로운 문제로" onPress={() => router.push('/trap')} testID="go-trap" />
+        <ActionRow label="예측 자세히 보기" onPress={() => router.push('/prediction')} />
+      </View>
 
-      <View style={styles.gap} />
-      {profile?.isDemo ? <Button label="데모 처음부터 · 예시 기록 초기화" variant="ghost" onPress={restartDemo} loading={resetting} testID="reset-demo" /> : null}
-      <View style={styles.gap} />
-      <Button label="새 프로필 / 데모 선택" variant="ghost" onPress={switchProfile} testID="switch-profile" />
+      <View style={styles.profileControls}>
+        {profile?.isDemo ? <ActionRow label="데모 처음부터 · 예시 기록 초기화" onPress={restartDemo} loading={resetting} testID="reset-demo" quiet /> : null}
+        <ActionRow label="새 프로필 / 데모 선택" onPress={switchProfile} testID="switch-profile" quiet />
+      </View>
       {resetError ? <ErrorState message="저장 공간을 확인하고 다시 시도해주세요." onRetry={profile?.isDemo ? restartDemo : switchProfile} /> : null}
-      <View style={styles.footerNote}>
-        <Sparkle size={14} color={colors.textFaint} />
-        <Caption>
-          {profile?.isDemo ? '데모 모드 · 예시 데이터가 포함되어 있습니다' : '당신의 실제 학습 데이터로 분석됩니다'}
-        </Caption>
+      <View style={styles.footer}>
+        <Caption>{profile?.isDemo ? '데모 · 예시 데이터가 포함되어 있습니다' : '이 기기에 학습 기록이 저장됩니다'}</Caption>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  headerLeft: { flex: 1 },
-  badgeRow: { marginTop: spacing.sm },
-  logoBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.md,
-    backgroundColor: colors.indigo,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  brandRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  brand: { ...typography.bodyStrong, color: colors.brand, marginLeft: spacing.sm },
+  mode: { flex: 1, alignItems: 'flex-end', marginLeft: spacing.md },
+  title: { marginTop: spacing.xs, marginBottom: spacing.xl },
   dnaBlock: { marginTop: spacing.lg },
-  predictBanner: {
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xl,
-  },
-  predictLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  predictText: { marginLeft: spacing.md, flex: 1 },
-  predictCaption: { ...typography.caption, color: colors.onDarkMuted },
-  predictValue: { ...typography.section, color: colors.onDark, marginTop: 2 },
-  predictScoreWrap: { alignItems: 'center', marginLeft: spacing.md },
-  predictScore: { fontSize: 30, fontWeight: '800', color: colors.onDark, fontVariant: ['tabular-nums'] },
-  predictScoreCap: { ...typography.caption, color: colors.onDarkMuted },
-  gap: { height: spacing.md },
-  footerNote: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.xl },
+  next: { marginTop: spacing.xxl },
+  patternRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  patternCaption: { ...typography.caption, color: colors.textMuted, marginLeft: spacing.sm },
+  pattern: { ...typography.section, color: colors.text, marginBottom: spacing.xs },
+  profileControls: { marginTop: spacing.xxl },
+  footer: { marginTop: spacing.lg },
 });

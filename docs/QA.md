@@ -11,9 +11,9 @@
 | `demo:loop` | 동일한 도메인·저장 함수로 조건 누락 83→100→91, HIT·교정·리포트 assert 통과 |
 | Expo 의존성 검사 | 프로젝트에 설치된 SDK 51 CLI의 `expo install --check` 통과 |
 | `expo-doctor` | 온라인 17/17 통과. SDK 51 스키마가 지원하지 않는 top-level newArchEnabled 제거 |
-| 개발 Expo Web | 실제 Chromium 렌더와 콘솔 확인. 초기 4개 너비 16개 시나리오, 최종 375px 5개 시나리오 통과 |
+| 개발 Expo Web | 실제 Chromium 렌더와 콘솔 확인. 디자인 정리 후 새 Expo Web에서 최종 375px 5개 시나리오 통과 |
 | 프로덕션 Web export | `npm run build:web -- --max-workers 2` 통과, dist/ 생성 |
-| 정적 export 브라우저 QA | Chromium 375 / 430 / 768 / 1440px, 20개 시나리오 통과 |
+| 정적 export 브라우저 QA | 디자인 정리 후 최종 Chromium 375 / 430 / 768 / 1440px, 20개 시나리오 통과 |
 | GitHub Actions | npm ci·typecheck·lint·Jest·web export + 독립 logic-tests. 최신 SHA의 실행은 PR #1 checks 참조 |
 | Android/iOS 실기기·development build | 미실행 |
 | Real Croche | NOT CONNECTED. Real 서비스 테스트는 fake client만 사용 |
@@ -64,9 +64,20 @@ Python 슬라이스 Trap의 잘못된 정답, 다중 선택 schema, 빈 주차�
 
 ## 최종 프로덕션 데모 캡처
 
-최종 export에서 375px 심사 루프를 다시 실행하고 확인한 화면입니다.
+최종 디자인의 export에서 전체 20개 시나리오를 실행한 화면입니다.
+온보딩·홈·분석·예측·Trap·리포트의 375/430/1440px 캡처와 전후 비교는 [디자인 기록](DESIGN.md)을 참고하세요.
 
 - [홈](screenshots/dashboard-375.png)
 - [오답 분석 · DNA 83→100](screenshots/analysis-375.png)
 - [Prediction HIT](screenshots/trap-hit-375.png)
 - [교정 후 리포트 · 적중률 50%, 조건 누락 91](screenshots/report-375.png)
+
+## 디자인 정리 후 재검증
+
+`npm ci`, 실제 앱 typecheck·lint, Jest 12 suites / 76 tests, 독립 로직 typecheck·68 tests,
+동일한 `demo:loop`, 프로덕션 export를 다시 통과했습니다.
+개발 Web 5개와 최종 export 20개의 실제 Chromium 시나리오도 통과했습니다.
+결과의 짧은 fade가 완료된 상태로 캡처하도록 개선한 뒤 4개 너비의 심사 루프 4개도 다시 통과했습니다.
+새 브라우저 오류나 경고는 없으며 기존 pointerEvents 경고는 그대로 기록합니다.
+이번 변경에서 패키지·lockfile·Expo major·점수 엔진·저장·Trap 판정은 변경하지 않았습니다.
+expo-doctor의 17/17은 같은 의존성을 검증했던 이전 런타임 단계의 결과이며 이번 디자인 단계에서 재실행하지 않았습니다.

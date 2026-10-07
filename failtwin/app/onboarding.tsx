@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { Card } from '@/components/Card';
+import { ActionRow } from '@/components/ActionRow';
 import { Button } from '@/components/Button';
 import { ErrorState } from '@/components/ErrorState';
 import { Pill } from '@/components/Pill';
-import { DnaIcon, Sparkle } from '@/components/icons';
+import { DnaIcon } from '@/components/icons';
 import { colors, radius, spacing, typography } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
 import { createRealProfile, seedDemo } from '@/state/onboarding';
@@ -45,110 +45,52 @@ export default function Onboarding() {
 
   return (
     <Screen>
-      <View style={styles.hero}>
-        <View style={styles.logoBadge}>
-          <DnaIcon size={34} color={colors.onDark} />
+      <View style={styles.brandRow}><DnaIcon size={22} /><Text style={styles.brand}>FailTwin</Text></View>
+      <Text style={styles.title}>반복되는 실수를{ '\n' }발견해보세요</Text>
+      <Text style={styles.tagline}>AI가 당신의 실수를 먼저 예측합니다</Text>
+      <Text style={styles.support}>풀이를 남기면 Error DNA로 실수 패턴을 기록하고, 같은 약점을 새로운 문제로 연습합니다.</Text>
+
+      <View style={styles.form}>
+        <Text style={styles.label}>이름</Text>
+        <TextInput style={styles.input} placeholder="이름을 입력하세요" placeholderTextColor={colors.textFaint}
+          value={name} onChangeText={setName} returnKeyType="done" accessibilityLabel="이름 입력" />
+
+        <Text style={[styles.label, styles.spacer]}>주요 학습 목적</Text>
+        <View style={styles.choices}>
+          {GOALS.map((g) => <Pill key={g} label={g} selected={goal === g} onPress={() => setGoal(g)} />)}
         </View>
-        <Text style={styles.brand}>FailTwin</Text>
-        <View style={styles.taglineRow}>
-          <Sparkle size={16} color={colors.violet} />
-          <Text style={styles.tagline}>AI가 당신의 실수를 먼저 예측합니다</Text>
+
+        <Text style={[styles.label, styles.spacer]}>관심 과목 <Text style={styles.optional}>· 여러 개 선택 가능</Text></Text>
+        <View style={styles.choices}>
+          {SUBJECTS.map((s) => <Pill key={s} label={s} selected={interests.includes(s)} onPress={() => toggleInterest(s)} />)}
         </View>
       </View>
 
-      <Card tone="muted">
-        <Text style={styles.desc}>
-          FailTwin은 당신이 <Text style={styles.descStrong}>무엇을 모르는지</Text>가 아니라{' '}
-          <Text style={styles.descStrong}>어떻게 반복해서 틀리는지</Text>를 학습합니다. 풀이와 오답을
-          분석해 개인별 Error DNA를 만들고, 다음 실수를 예측하며, 당신이 가장 실수하기 쉬운 맞춤 문제를
-          시험 전에 미리 경험하게 합니다.
-        </Text>
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>이름</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="이름을 입력하세요"
-          placeholderTextColor={colors.textFaint}
-          value={name}
-          onChangeText={setName}
-          returnKeyType="done"
-          accessibilityLabel="이름 입력"
-        />
-
-        <Text style={[styles.label, styles.spacer]}>주요 학습 목적</Text>
-        <View style={styles.pillRow}>
-          {GOALS.map((g) => (
-            <Pill key={g} label={g} tone="indigo" selected={goal === g} onPress={() => setGoal(g)} />
-          ))}
-        </View>
-
-        <Text style={[styles.label, styles.spacer]}>관심 과목</Text>
-        <View style={styles.pillRow}>
-          {SUBJECTS.map((s) => (
-            <Pill
-              key={s}
-              label={s}
-              tone="violet"
-              selected={interests.includes(s)}
-              onPress={() => toggleInterest(s)}
-            />
-          ))}
-        </View>
-      </Card>
-
       {error ? <ErrorState message="저장에 실패했어요. 브라우저의 저장 공간을 확인해주세요." onRetry={start} /> : null}
-      <Button
-        label="시작하기"
-        onPress={start}
-        loading={busy}
-        disabled={interests.length === 0 || name.trim().length === 0}
-        testID="onboarding-start"
-      />
-      <View style={styles.gap} />
-      <Button
-        label="⚡ 심사용 빠른 데모"
-        variant="ghost"
-        onPress={quickDemo}
-        loading={busy}
-        testID="onboarding-demo"
-      />
-      <Text style={styles.demoHint}>
-        데모에는 예시 Error DNA가 미리 들어 있어 2분 안에 전체 흐름을 체험할 수 있어요.
-      </Text>
+      <Button label="시작하기" onPress={start} loading={busy}
+        disabled={interests.length === 0 || name.trim().length === 0} testID="onboarding-start" />
+      <View style={styles.demo}>
+        <ActionRow label="심사용 빠른 데모" onPress={quickDemo} loading={busy} testID="onboarding-demo" quiet />
+        <Text style={styles.demoHint}>예시 학습 기록으로 2분 안에 전체 흐름을 확인할 수 있어요.</Text>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: 'center', marginBottom: spacing.xl, marginTop: spacing.lg },
-  logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.xl,
-    backgroundColor: colors.indigo,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  brand: { ...typography.display, color: colors.text },
-  taglineRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs },
-  tagline: { ...typography.body, color: colors.textMuted, marginLeft: spacing.xs },
-  desc: { ...typography.body, color: colors.textMuted, lineHeight: 23 },
-  descStrong: { color: colors.indigo, fontWeight: '700' },
-  label: { ...typography.caption, fontSize: 13, color: colors.textMuted, marginBottom: spacing.sm },
-  spacer: { marginTop: spacing.lg },
-  input: {
-    ...typography.body,
-    color: colors.text,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    minHeight: 48,
-  },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  gap: { height: spacing.md },
-  demoHint: { ...typography.caption, color: colors.textFaint, textAlign: 'center', marginTop: spacing.md },
+  brandRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, marginBottom: spacing.xxl },
+  brand: { ...typography.section, color: colors.brand, marginLeft: spacing.sm },
+  title: { ...typography.display, color: colors.text },
+  tagline: { ...typography.caption, color: colors.textMuted, marginTop: spacing.md },
+  support: { ...typography.body, color: colors.textMuted, marginTop: spacing.md },
+  form: { marginVertical: spacing.xxl },
+  label: { ...typography.bodyStrong, fontSize: 13, color: colors.text, marginBottom: spacing.sm },
+  optional: { ...typography.caption, color: colors.textMuted },
+  spacer: { marginTop: spacing.xl },
+  input: { ...typography.body, color: colors.text, backgroundColor: colors.surface,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.controlBorder,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 48 },
+  choices: { flexDirection: 'row', flexWrap: 'wrap' },
+  demo: { marginTop: spacing.lg },
+  demoHint: { ...typography.caption, color: colors.textMuted, marginTop: spacing.sm },
 });

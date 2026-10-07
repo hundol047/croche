@@ -19,6 +19,28 @@ async function noOverflow(page) {
   }));
   for (const chart of charts) { expect(chart.width).toBeGreaterThan(0); expect(chart.fits).toBe(true); }
 }
+async function capture(page, name) {
+  await noOverflow(page);
+  if (name === 'trap-hit' || name === 'trap-overcome') {
+    const title = name === 'trap-hit' ? '예측 적중 (Prediction HIT)' : 'Trap 극복';
+    // Capture the settled result, not an intermediate frame of its brief fade.
+    await expect(page.getByText(title, { exact: true }).filter({ visible: true }).locator('..')).toHaveCSS('opacity', '1');
+  }
+  // RN ScrollView scrolls within the viewport. Capture its end as well so
+  // presenter screenshots do not conceal feedback or actions below the fold.
+  const handle = await page.evaluateHandle(() => [...document.querySelectorAll('div')].find((el) =>
+    el.getBoundingClientRect().height > 0 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowY) &&
+    el.scrollHeight > el.clientHeight + 4) || null);
+  const scroll = handle.asElement();
+  if (scroll) await scroll.evaluate((el) => { el.scrollTop = 0; });
+  await page.screenshot({ path: test.info().outputPath(`${name}.png`), fullPage: true });
+  if (scroll) {
+    await scroll.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await page.screenshot({ path: test.info().outputPath(`${name}-end.png`), fullPage: true });
+    await scroll.evaluate((el) => { el.scrollTop = 0; });
+  }
+  await handle.dispose();
+}
 async function reloadWith(page, text) {
   await expect(page.getByText(text, { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await page.reload();
@@ -27,6 +49,9 @@ async function reloadWith(page, text) {
 }
 async function demo(page) {
   await page.goto('/onboarding');
+  await expect(page.getByTestId('onboarding-demo').filter({ visible: true })).toBeVisible();
+  await noOverflow(page);
+  await capture(page, 'onboarding');
   await page.getByTestId('onboarding-demo').filter({ visible: true }).click();
   await expect(page.getByTestId('go-practice').filter({ visible: true })).toBeVisible();
 }
@@ -106,10 +131,12 @@ test('fresh profile stays empty; bank and generated problems work in every subje
 
 test('judge loop: one analysis, HIT, new trap, correction, report and reload persistence', async ({ page }) => {
   await demo(page);
-  await reloadWith(page, '오늘의 학습 진단');
-  await page.screenshot({ path: test.info().outputPath('dashboard.png'), fullPage: true });
+  await reloadWith(page, '오늘의 학습 상태');
+  await capture(page, 'dashboard');
   await page.getByTestId('go-practice').filter({ visible: true }).click();
+  await capture(page, 'practice');
   await page.getByRole('button', { name: '약분과 정의역 문제 풀기', exact: true }).click();
+  await capture(page, 'solve');
   await page.getByLabel('답 입력', { exact: true }).fill('2');
   await page.getByLabel('풀이 과정 입력', { exact: true }).fill('x+1로 약분하고 x=1을 대입했어요.');
   await page.getByTestId('submit-answer').filter({ visible: true }).click();
@@ -118,10 +145,12 @@ test('judge loop: one analysis, HIT, new trap, correction, report and reload per
   expect((await learning(page)).mistakes).toHaveLength(1);
   await reloadWith(page, 'Error DNA 변화');
   expect((await learning(page)).mistakes).toHaveLength(1);
-  await page.screenshot({ path: test.info().outputPath('analysis.png'), fullPage: true });
+  await capture(page, 'analysis');
   await page.getByRole('button', { name: '다음 실수 예측 보기', exact: true }).click();
   await reloadWith(page, '예상 실수 위험도');
-  await page.getByRole('button', { name: '🎯 이 실수를 유발하는 Trap 문제 받기', exact: true }).click();
+  await capture(page, 'prediction');
+  await page.getByRole('button', { name: '이 유형 훈련하기', exact: true }).click();
+  await capture(page, 'trap-intro');
   await page.getByTestId('trap-start').filter({ visible: true }).click();
   await expect(page.getByText('ln(x-2) + ln(5-x)', { exact: false }).filter({ visible: true })).toBeVisible();
   await reloadWith(page, '타깃: 조건 누락');
@@ -129,14 +158,15 @@ test('judge loop: one analysis, HIT, new trap, correction, report and reload per
   await page.getByTestId('trap-submit').filter({ visible: true }).click();
   await expect(page.getByText('예측 적중 (Prediction HIT)', { exact: true }).filter({ visible: true })).toBeVisible();
   await reloadWith(page, '예측 적중 (Prediction HIT)');
-  await page.screenshot({ path: test.info().outputPath('trap-hit.png'), fullPage: true });
+  await capture(page, 'trap-hit');
   expect((await learning(page)).traps).toHaveLength(1);
   await page.getByRole('button', { name: '다시 도전', exact: true }).click();
   await expect(page.getByText('√(9-x²)', { exact: false }).filter({ visible: true })).toBeVisible();
   await page.getByLabel('Trap 답 입력', { exact: true }).fill('[-3,3]');
   await page.getByTestId('trap-submit').filter({ visible: true }).click();
-  await expect(page.getByText('Trap 극복! 🎉', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('Trap 극복', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('조건 누락 100 → 91', { exact: true }).filter({ visible: true })).toBeVisible();
+  await capture(page, 'trap-overcome');
   await page.getByRole('button', { name: '학습 리포트 보기', exact: true }).click();
   await expect(page.getByText('50%', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('1개', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -146,7 +176,7 @@ test('judge loop: one analysis, HIT, new trap, correction, report and reload per
   expect(state.traps).toHaveLength(2);
   expect(state.traps.map((t) => t.predictionHit)).toEqual([true, false]);
   await noOverflow(page);
-  await page.screenshot({ path: test.info().outputPath('report.png'), fullPage: true });
+  await capture(page, 'report');
 });
 
 test('uncertain wrong Trap gives neutral feedback and does not invent a DNA change', async ({ page }) => {

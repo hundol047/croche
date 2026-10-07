@@ -1,63 +1,33 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
 import { colors, radius, spacing, typography } from '@/constants/theme';
-import { TargetIcon, Sparkle } from './icons';
+import { TargetIcon } from './icons';
 import { errorTypeLabel } from '@/domain/errorTypes';
 import type { ErrorType } from '@/domain/types';
 
-interface TrapCardProps {
-  targetErrorType: ErrorType;
-  children?: React.ReactNode;
-}
-
-/**
- * Violet gradient trap challenge card — the hero visual for FailTwin's
- * flagship Trap Mode. Shows the targeted error type as a badge.
- */
-export function TrapCard({ targetErrorType, children }: TrapCardProps) {
-  return (
-    <View style={styles.wrapper}>
-      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-        <Rect x="0" y="0" width="100%" height="100%" fill={colors.violet} rx={radius.lg} />
-      </Svg>
-      <View style={styles.inner}>
-        <View style={styles.header}>
-          <TargetIcon size={24} color={colors.onDark} />
-          <Text style={styles.title}>Trap Mode</Text>
-          <Sparkle size={18} color={colors.onDarkMuted} />
-        </View>
-        <Text style={styles.subtitle}>나를 틀리게 만드는 문제</Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeLabel}>타깃 실수</Text>
-          <Text style={styles.badgeValue}>{errorTypeLabel(targetErrorType)}</Text>
-        </View>
-        {children}
-      </View>
+/** The one ink surface: a focused training target, with a restrained violet rule. */
+export function TrapCard({ targetErrorType, children }: { targetErrorType: ErrorType; children?: React.ReactNode }) {
+  return <View style={styles.panel}>
+    <View style={styles.header}>
+      <TargetIcon size={20} color={colors.onDarkMuted} />
+      <Text style={styles.eyebrow}>집중 훈련</Text>
     </View>
-  );
+    <Text style={styles.title}>실수 패턴 훈련</Text>
+    <View style={styles.target}>
+      <Text style={styles.caption}>이번에 확인할 패턴</Text>
+      <Text style={styles.targetValue}>{errorTypeLabel(targetErrorType)}</Text>
+    </View>
+    {children}
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-  },
-  inner: { padding: spacing.xl },
+  panel: { backgroundColor: colors.ink, borderRadius: radius.xl, borderLeftWidth: 3,
+    borderLeftColor: colors.trapAccent, padding: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.xl },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
-  title: { ...typography.section, color: colors.onDark, marginLeft: spacing.sm, flex: 1 },
-  subtitle: { ...typography.title, color: colors.onDark, marginBottom: spacing.lg },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    marginBottom: spacing.md,
-  },
-  badgeLabel: { ...typography.caption, color: colors.onDarkMuted, marginRight: spacing.sm },
-  badgeValue: { ...typography.caption, fontSize: 13, fontWeight: '700', color: colors.onDark },
+  eyebrow: { ...typography.caption, color: colors.onDarkMuted, marginLeft: spacing.sm },
+  caption: { ...typography.caption, color: colors.onDarkMuted },
+  title: { ...typography.title, color: colors.onDark, marginBottom: spacing.xl },
+  target: { borderTopWidth: 1, borderTopColor: colors.trapAccent, paddingTop: spacing.lg, marginBottom: spacing.lg },
+  targetValue: { ...typography.section, color: colors.onDark, marginTop: spacing.xs },
 });

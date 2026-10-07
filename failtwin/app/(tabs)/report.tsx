@@ -4,16 +4,17 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { EmptyState } from '@/components/EmptyState';
 import { Card } from '@/components/Card';
+import { Section } from '@/components/Section';
 import { LineChart } from '@/components/LineChart';
 import { InsightCard } from '@/components/InsightCard';
-import { Title, SectionTitle, Body, Caption } from '@/components/typography';
-import { colors, radius, spacing, typography, scoreColor } from '@/constants/theme';
+import { Title, Body, Caption } from '@/components/typography';
+import { colors, spacing, typography, scoreColor } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
 import { buildReport } from '@/domain/report';
 import { errorTypeLabel } from '@/domain/errorTypes';
 
 export default function Report() {
-  const { dna, mistakes, traps, refresh } = useApp();
+  const { dna, mistakes, traps, refresh, profile } = useApp();
   const [chartWidth, setChartWidth] = useState(280);
   const router = useRouter();
 
@@ -26,84 +27,61 @@ export default function Report() {
   const report = useMemo(() => buildReport(mistakes, traps, dna), [mistakes, traps, dna]);
   const hasHistory = mistakes.length > 0 || traps.length > 0;
 
+  const latest = [...mistakes, ...traps].map((event) => event.createdAt).sort().pop();
+
   return (
     <Screen>
-      <Title>학습 리포트</Title>
-      <Body muted style={styles.sub}>당신의 실수 패턴이 어떻게 변하고 있는지 보여줍니다.</Body>
+      <Caption>{profile?.isDemo ? '예시 DNA 포함 · ' : ''}{latest ? `최근 기록 · ${new Date(latest).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}` : '나의 학습 기록'}</Caption>
+      <Title style={styles.title}>학습 리포트</Title>
+      <Body muted style={styles.sub}>{mistakes.length}회 풀이 · Trap {traps.length}회에서 확인한 변화</Body>
 
       {!hasHistory ? <Card><EmptyState title="아직 학습 기록이 없어요"
         description="문제를 풀고 Trap에 도전하면 실제 기록으로 리포트가 채워집니다."
         ctaLabel="첫 문제 풀기" onCta={() => router.push('/practice')} /></Card> : null}
 
-      {/* 핵심 지표 */}
-      <View style={styles.metricRow}>
-        <View style={styles.metricCol}>
-          <Metric label="AI 예측 적중률" value={traps.length ? `${Math.round(report.predictionHitRate * 100)}%` : '—'} tone={colors.violet} />
-        </View>
-        <View style={styles.metricColLast}>
-          <Metric label="교정 완료 실수" value={`${report.correctedCount}개`} tone={colors.success} />
-        </View>
+      <View style={styles.metrics}>
+        <View style={styles.metric}><Text style={styles.metricValue}>{traps.length ? `${Math.round(report.predictionHitRate * 100)}%` : '—'}</Text><Caption>예측 적중률</Caption></View>
+        <View style={[styles.metric, styles.metricLast]}><Text style={[styles.metricValue, { color: colors.success }]}>{report.correctedCount}개</Text><Caption>교정 완료 실수</Caption></View>
       </View>
-
       <Caption>Trap {traps.length}회 중 예측 적중 {traps.filter((t) => t.predictionHit).length}회 · 관찰된 비율이며 미래 확률이 아닙니다</Caption>
 
-      {/* 재발률 추이 */}
-      <Card>
-        <SectionTitle>주차별 실수 재발률</SectionTitle>
+      <Section title="주차별 실수 재발률">
         <View style={styles.chartWrap} onLayout={(e) => setChartWidth(Math.max(120, Math.min(480, e.nativeEvent.layout.width)))}>
           <LineChart data={report.recurrenceTrend} width={chartWidth} />
         </View>
-      </Card>
+      </Section>
 
-      {/* 가장 개선 / 가장 위험 */}
-      <Card>
-        <SectionTitle>Error DNA 하이라이트</SectionTitle>
+      <Section title="Error DNA 변화">
         <View style={styles.highlightRow}>
-          <Caption>가장 개선된 실수</Caption>
+          <Caption>가장 줄어든 실수</Caption>
           <Text style={[styles.highlightValue, { color: colors.success }]}>
-            {report.mostImprovedErrorType ? errorTypeLabel(report.mostImprovedErrorType) : '-'}
-            {report.mostImprovedDelta > 0 ? `  ▲${Math.round(report.mostImprovedDelta)}` : ''}
+            {report.mostImprovedErrorType ? errorTypeLabel(report.mostImprovedErrorType) : '—'}
+            {report.mostImprovedDelta > 0 ? ` · ${Math.round(report.mostImprovedDelta)}점 개선` : ''}
           </Text>
         </View>
-        <View style={styles.divider} />
         <View style={styles.highlightRow}>
-          <Caption>현재 가장 위험한 실수</Caption>
+          <Caption>아직 자주 나타나는 실수</Caption>
           <Text style={[styles.highlightValue, { color: scoreColor(report.mostDangerousScore) }]}>
-            {report.mostDangerousErrorType ? errorTypeLabel(report.mostDangerousErrorType) : '-'}
-            {report.mostDangerousScore > 0 ? `  ${Math.round(report.mostDangerousScore)}` : ''}
+            {report.mostDangerousErrorType ? errorTypeLabel(report.mostDangerousErrorType) : '—'}
+            {report.mostDangerousScore > 0 ? ` · ${Math.round(report.mostDangerousScore)}` : ''}
           </Text>
         </View>
-      </Card>
+      </Section>
 
-      {/* AI Insight */}
       <InsightCard text={report.insight} />
     </Screen>
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={[styles.metricValue, { color: tone }]}>{value}</Text>
-      <Caption>{label}</Caption>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  sub: { marginBottom: spacing.lg },
-  metricRow: { flexDirection: 'row', marginBottom: spacing.lg },
-  metricCol: { flex: 1, marginRight: spacing.md },
-  metricColLast: { flex: 1 },
-  metric: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  metricValue: { fontSize: 28, fontWeight: '800', marginBottom: 2, fontVariant: ['tabular-nums'] },
-  chartWrap: { width: '100%', alignItems: 'center', marginTop: spacing.sm },
+  title: { marginTop: spacing.xs },
+  sub: { marginTop: spacing.sm, marginBottom: spacing.xl },
+  metrics: { flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surface, marginBottom: spacing.md, paddingVertical: spacing.lg },
+  metric: { flex: 1, paddingHorizontal: spacing.lg },
+  metricLast: { borderLeftWidth: 1, borderLeftColor: colors.border },
+  metricValue: { ...typography.title, color: colors.brand, marginBottom: spacing.xs, fontVariant: ['tabular-nums'] },
+  chartWrap: { width: '100%', alignItems: 'center' },
   highlightRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm },
-  highlightValue: { ...typography.bodyStrong, flexShrink: 1, textAlign: 'right', marginLeft: spacing.sm },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  highlightValue: { ...typography.bodyStrong, fontSize: 13, flexShrink: 1, textAlign: 'right', marginLeft: spacing.md },
 });

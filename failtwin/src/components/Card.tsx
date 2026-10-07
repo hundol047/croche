@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radius, shadow, spacing } from '@/constants/theme';
+import { colors, radius, spacing } from '@/constants/theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -8,14 +8,13 @@ interface CardProps {
   tone?: 'default' | 'muted';
 }
 
-/** Rounded card with a soft shadow — the primary surface primitive. */
+/** Bordered paper panel. Elevation is deliberately absent from normal content. */
 export function Card({ children, style, tone = 'default' }: CardProps) {
   return (
     <View
       style={[
         styles.card,
         tone === 'muted' ? styles.muted : undefined,
-        shadow.card,
         style,
       ]}
     >
@@ -28,8 +27,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: spacing.xl,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   muted: { backgroundColor: colors.surfaceAlt },
 });

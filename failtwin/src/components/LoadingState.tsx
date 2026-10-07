@@ -1,15 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Platform } from 'react-native';
-import { colors, radius, spacing, typography } from '@/constants/theme';
-import { Sparkle } from './icons';
+import { colors, spacing, typography } from '@/constants/theme';
+import { DnaIcon } from './icons';
 
 interface LoadingStateProps {
   message: string;
 }
 
 /**
- * Loading state with a subtle shimmering skeleton + an AI sparkle and a
- * context-specific message (e.g. "당신의 풀이 패턴을 분석하고 있어요").
+ * Loading state with quiet DNA rails and a context-specific utility message.
  * Animation is subtle (opacity pulse) — no heavy motion (R13 / R11.1).
  */
 export function LoadingState({ message }: LoadingStateProps) {
@@ -29,7 +28,7 @@ export function LoadingState({ message }: LoadingStateProps) {
   return (
     <View style={styles.container}>
       <View style={styles.sparkleRow}>
-        <Sparkle size={28} color={colors.violet} />
+        <DnaIcon size={24} color={colors.brand} />
       </View>
       <Text style={styles.message}>{message}</Text>
       <View style={styles.skeletonBlock}>
@@ -50,8 +49,8 @@ const styles = StyleSheet.create({
   message: { ...typography.bodyStrong, color: colors.text, textAlign: 'center', marginBottom: spacing.xl },
   skeletonBlock: { width: '100%', alignItems: 'center' },
   skeletonLine: {
-    height: 14,
-    borderRadius: radius.sm,
+    height: 4,
+    borderRadius: 1,
     backgroundColor: colors.surfaceAlt,
     marginBottom: spacing.md,
   },

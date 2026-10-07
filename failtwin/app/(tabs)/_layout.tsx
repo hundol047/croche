@@ -1,15 +1,14 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
 import { colors } from '@/constants/theme';
-import { DnaIcon } from '@/components/icons';
+import { DnaIcon, ReportIcon } from '@/components/icons';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.indigo,
+        tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
           backgroundColor: colors.surface,
@@ -32,7 +31,7 @@ export default function TabsLayout() {
         name="report"
         options={{
           title: '리포트',
-          tabBarIcon: ({ color }: { color: string }) => <Text style={{ fontSize: 18, color }}>📈</Text>,
+          tabBarIcon: ({ color }: { color: string }) => <ReportIcon size={22} color={color} />,
         }}
       />
     </Tabs>

@@ -12,7 +12,7 @@ interface ErrorDnaBarsProps {
 
 /**
  * The signature Error DNA visualization: a ranked list of error types with a
- * horizontal progress bar and score per type. Highest risk is highlighted.
+ * thin segmented rail, observed occurrence count and compact score per type.
  */
 export function ErrorDnaBars({ entries, limit = 5 }: ErrorDnaBarsProps) {
   const ranked = [...entries].sort((a, b) => b.score - a.score).slice(0, limit);
@@ -32,14 +32,15 @@ export function ErrorDnaBars({ entries, limit = 5 }: ErrorDnaBarsProps) {
       {ranked.map((e, i) => {
         const c = scoreColor(e.score);
         return (
-          <View key={e.errorType} style={[styles.row, i === 0 ? styles.topRow : undefined]}>
+          <View key={e.errorType} style={[styles.row, i === ranked.length - 1 ? styles.lastRow : undefined]}>
             <View style={styles.labelRow}>
               <Text style={styles.label} numberOfLines={1}>
                 {errorTypeLabel(e.errorType)}
               </Text>
-              <Text style={[styles.score, { color: c }]}>{Math.round(e.score)}점</Text>
+              <Text style={styles.count}>기록 {e.occurrenceCount}회</Text>
+              <Text style={[styles.score, { color: c }]}>{Math.round(e.score)}</Text>
             </View>
-            <ProgressBar value={e.score} color={c} />
+            <ProgressBar value={e.score} color={c} segmented />
           </View>
         );
       })}
@@ -49,15 +50,16 @@ export function ErrorDnaBars({ entries, limit = 5 }: ErrorDnaBarsProps) {
 
 const styles = StyleSheet.create({
   row: { marginBottom: spacing.lg },
-  topRow: {},
+  lastRow: { marginBottom: 0 },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  label: { ...typography.bodyStrong, color: colors.text, flex: 1, marginRight: spacing.sm },
-  score: { ...typography.bodyStrong, fontVariant: ['tabular-nums'] },
+  label: { ...typography.body, color: colors.text, flex: 1, marginRight: spacing.sm },
+  count: { ...typography.caption, color: colors.textMuted, marginRight: spacing.md },
+  score: { ...typography.bodyStrong, minWidth: 28, textAlign: 'right', fontVariant: ['tabular-nums'] },
   empty: { paddingVertical: spacing.lg },
   emptyText: { ...typography.body, color: colors.textMuted, lineHeight: 22 },
 });
