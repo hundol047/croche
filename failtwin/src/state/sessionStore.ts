@@ -2,6 +2,7 @@ import type { Problem, Attempt, TrapProblem, ErrorType } from '@/domain/types';
 import { getKV, type KVStore } from '@/storage/kv';
 
 interface SessionData {
+  curriculumHandoffToken?: string;
   currentProblem?: Problem;
   currentAttempt?: Attempt;
   currentTrap?: TrapProblem;
@@ -28,9 +29,13 @@ export class SessionStore {
   async set<K extends keyof SessionData>(key: K, value: SessionData[K]): Promise<void> {
     await this.save({ ...this.data, [key]: value });
   }
-  async startPractice(problem: Problem): Promise<void> {
+  async startPractice(problem: Problem, handoffToken?: string): Promise<void> {
+    // Retrying the same durable handoff preserves answers; a new review token resets them.
+    if (handoffToken && this.data.curriculumHandoffToken === handoffToken && this.data.currentProblem?.id === problem.id) return;
     const rest = { ...this.data };
     delete rest.currentAttempt;
+    delete rest.curriculumHandoffToken;
+    if (handoffToken) rest.curriculumHandoffToken = handoffToken;
     await this.save({ ...rest, currentProblem: problem });
   }
   async startTrap(trap: TrapProblem, id: string): Promise<void> {

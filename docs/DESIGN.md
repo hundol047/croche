@@ -136,3 +136,26 @@ DNA 점수 엔진과 리포트 집계는 유지했습니다. 채점과 출제 �
 | 전문가 감수 대기 | [375px](screenshots/history-review-pending-375.png), [1440px](screenshots/history-review-pending-1440.png) |
 
 모든 캡처는 실제 Chromium에서 얻었습니다. 추가 화면은 네 폭에서 가로 넘침·입력·버튼·소진 안내를 확인했습니다. 원문/기출/감수 미완료 상태를 완성됐다고 표시하지 않습니다.
+
+
+## 단원 복습·저장 복구 다듬기 (2026-10-08)
+
+초기 단원 목록은 휴대폰에서 선택 컨트롤이 화면 대부분을 차지했습니다. 첫 선택 후에는
+‘학교급 · 과목 · 범위’ 한 줄로 줄이고, ‘학습 범위 바꾸기’에서 같은 선택지를 다시 펼칩니다.
+선택 상태와 펼침/비활성 상태를 접근성 정보로 전달하며, 터치 영역은 44px 이상을 유지합니다.
+
+‘모두 열어봄’으로 끝나던 단원에는 열어본 기본·응용 문항을 다시 고르는 동작을 추가했습니다.
+새 문항이 없는 상태와 실제 제출/정답 상태를 구분하고, 복습 선택지는 누를 때만 펼칩니다.
+저장 오류와 이어열기 버튼은 화면 위쪽에 둬 긴 목록을 내려가야 복구할 수 있던 문제를 고쳤습니다.
+범위의 부족한 부분은 명시적으로 펼쳐 볼 수 있고, 공식 기출/감수 미완료 안내는 유지했습니다.
+
+분석의 ‘다음 문제 풀기’는 실제 목적지에 맞춰 ‘다음 단원 문제 고르기’로 바꿨습니다.
+오답 분석에서도 단원 복습으로 돌아갈 수 있습니다. 공통 하단 버튼은 본문의 600px 열 안쪽과
+같은 폭으로 중앙 정렬해 데스크톱에서 화면 전체로 늘어나던 문제를 수정했습니다.
+공식 기출 화면에서는 개발 환경의 HTTP 오류 대신 자료 목록의 의미를 설명합니다.
+
+| 상태 | 이전 | 다듬은 화면 |
+|---|---|---|
+| 완료 단원·복습 | [375px](screenshots/curriculum-elementary-375.png) | [375px](screenshots/curriculum-review-polished-375.png) · [430px](screenshots/curriculum-review-polished-430.png) · [768px](screenshots/curriculum-review-polished-768.png) · [1440px](screenshots/curriculum-review-polished-1440.png) |
+| 새로고침 뒤 저장 복구 | 준비 문항이 메모리에만 남았음 | [375px](screenshots/curriculum-refresh-recovery-375.png) · [1440px](screenshots/curriculum-refresh-recovery-1440.png) |
+| 다음 행동·하단 폭 | [기존 분석](screenshots/analysis-375.png) | [375px](screenshots/analysis-footer-polished-375.png) · [1440px](screenshots/analysis-footer-polished-1440.png) |

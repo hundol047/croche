@@ -34,7 +34,7 @@ export function Screen({ children, scroll = true, padded = true, style, footer }
       ) : (
         <View style={styles.flex}>{content}</View>
       )}
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? <View style={styles.footer}><View style={styles.footerColumn}>{footer}</View></View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: spacing.xxxl },
   column: { width: '100%', maxWidth: 600, alignSelf: 'center' },
   padded: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
+  footerColumn: { width: '100%', maxWidth: 600 - 2 * spacing.xl, alignSelf: 'center' },
   footer: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,

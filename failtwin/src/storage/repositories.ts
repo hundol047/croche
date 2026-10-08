@@ -66,6 +66,8 @@ export class ProfileRepo {
 }
 
 export interface LearningState {
+  /** Durable handoff to the session; resolves only to an immutable authored item. */
+  curriculumPending?: { problemId: string; token: string };
   /** Separate versioned reservations for fixed authored unit questions. */
   curriculumProgress?: Record<string, number>;
   curriculumSelection?: {educationLevel: import('@/domain/types').EducationLevel; subject: import('@/domain/types').Subject; group: string};

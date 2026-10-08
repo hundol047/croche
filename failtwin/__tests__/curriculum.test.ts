@@ -2,11 +2,13 @@ import { CURRICULUM_UNITS, curriculumProblem, curriculumUnits } from '@/content/
 import { EDUCATION_LEVELS, curriculumSubjects } from '@/domain/curriculum';
 import { validateProblem } from '@/domain/schemas';
 import { assessAnswer } from '@/domain/answerAssessment';
-import { curriculumProgressKey, issueCurriculum, unitAvailability } from '@/domain/curriculumIssuance';
+import { curriculumProgressKey, issueCurriculum, unitAvailability, prepareCurriculum, pendingCurriculumProblem, finishCurriculumHandoff, unitCompletion } from '@/domain/curriculumIssuance';
 import { makeRepositories } from '@/storage/repositories';
 import { MemoryKVStore } from '@/storage/kv';
 import { HISTORY_FACTS } from '@/content/schoolHistory';
 import { OFFICIAL_EXAMS } from '@/content/officialExams';
+import { SessionStore } from '@/state/sessionStore';
+import type { MistakeRecord } from '@/domain/types';
 import { OFFICIAL_EXAM_RECEIPTS } from '@/content/officialExamReceipts';
 
 const unit = CURRICULUM_UNITS[0]!;
@@ -123,6 +125,65 @@ describe('durable unit reservations', () => {
       await repos.learning.update('u', s => ({...s, curriculumProgress: corrupt as unknown as Record<string,number>}));
       const before=await repos.learning.get('u');let failed=false;
       try{await issueCurriculum(repos,'u',unit);}catch{failed=true;}
+      expect(failed).toBe(true);expect(await repos.learning.get('u')).toEqual(before);
+    }
+  });
+});
+
+describe('recoverable curriculum handoff and review', () => {
+  it('restores one reservation across reloads and parallel prepare calls without consuming another', async () => {
+    const kv = new MemoryKVStore(), repos = makeRepositories(kv);
+    const problems = await Promise.all([prepareCurriculum(repos,'u',unit),prepareCurriculum(repos,'u',unit)]);
+    expect(problems[0]!.id).toBe(problems[1]!.id);
+    const saved = await repos.learning.get('u');
+    expect(unitAvailability(saved,unit).next).toBe(1);
+    expect(pendingCurriculumProblem(await makeRepositories(kv).learning.get('u'))?.id).toBe(problems[0]!.id);
+    expect(saved.mistakes).toEqual([]);expect(saved.dna).toEqual([]);
+    const token = saved.curriculumPending!.token;
+    await finishCurriculumHandoff(repos,'u',problems[0]!.id,'stale');
+    expect((await repos.learning.get('u')).curriculumPending?.token).toBe(token);
+    await finishCurriculumHandoff(repos,'u',problems[0]!.id,token);
+    expect((await repos.learning.get('u')).curriculumPending).toBe(undefined);
+    expect((await prepareCurriculum(repos,'u',unit)).id).toBe(curriculumProblem(unit,1).id);
+  });
+  it('reopens only reserved items without resetting exhaustion or cross-user records', async () => {
+    const repos=makeRepositories(new MemoryKVStore());
+    await issueCurriculum(repos,'u',unit);await issueCurriculum(repos,'u',unit);
+    const before=await repos.learning.get('u');
+    const review=await prepareCurriculum(repos,'u',unit,'전체',0);
+    expect(review.id).toBe(curriculumProblem(unit,0).id);
+    const after=await repos.learning.get('u');expect(after.curriculumProgress).toEqual(before.curriculumProgress);
+    expect(unitAvailability(after,unit).remaining).toBe(0);expect(after.mistakes).toEqual(before.mistakes);
+    let failed=false;try{await prepareCurriculum(repos,'other',unit,'전체',0);}catch{failed=true;}
+    expect(failed).toBe(true);expect(unitAvailability(await repos.learning.get('other'),unit).next).toBe(0);
+  });
+  it('keeps the reserved item when acknowledging a saved session fails; same handoff preserves a submitted answer while a new review clears it', async () => {
+    class FailingKV extends MemoryKVStore { failing=false; override async setItem(k:string,v:string){if(this.failing&&k.endsWith(':learning'))throw new Error('full');await super.setItem(k,v);} }
+    const kv=new FailingKV(),repos=makeRepositories(kv),session=new SessionStore(()=>kv);
+    await session.bind('u');const problem=await prepareCurriculum(repos,'u',unit);const token=(await repos.learning.get('u')).curriculumPending!.token;
+    await session.startPractice(problem,token);kv.failing=true;
+    let failed=false;try{await finishCurriculumHandoff(repos,'u',problem.id,token);}catch{failed=true;}
+    expect(failed).toBe(true);expect(pendingCurriculumProblem(await repos.learning.get('u'))?.id).toBe(problem.id);
+    await session.set('currentAttempt',{id:'a',userId:'u',problemId:problem.id,userAnswer:problem.correctAnswer,confidence:'medium',createdAt:'2026-10-08T00:00:00Z'});
+    const restored=new SessionStore(()=>kv);await restored.bind('u');await restored.startPractice(problem,token);
+    expect(restored.get('currentAttempt')?.id).toBe('a');kv.failing=false;
+    await finishCurriculumHandoff(repos,'u',problem.id,token);
+    await prepareCurriculum(repos,'u',unit,'전체',0);const reviewToken=(await repos.learning.get('u')).curriculumPending!.token;
+    expect(reviewToken===token).toBe(false);await restored.startPractice(problem,reviewToken);expect(restored.get('currentAttempt')).toBe(undefined);
+  });
+  it('does not count opened or repeated answers twice; latest actual outcome controls completion', () => {
+    const id=curriculumProblem(unit,0).id;
+    const records=[{problemId:id,isCorrect:false},{problemId:id,isCorrect:true}] as MistakeRecord[];
+    expect(unitCompletion({dna:[],mistakes:[],traps:[]},unit)).toEqual({answered:0,correct:0});
+    expect(unitCompletion({dna:[],mistakes:records,traps:[]},unit)).toEqual({answered:1,correct:1});
+    expect(unitCompletion({dna:[],mistakes:[...records,{problemId:id,isCorrect:false} as MistakeRecord],traps:[]},unit)).toEqual({answered:1,correct:0});
+  });
+  it('rejects unknown, malformed and unreserved pending items without rewriting them', async () => {
+    const repos=makeRepositories(new MemoryKVStore());
+    for(const pending of [null,{problemId:'code',token:'curriculum_a'},{problemId:curriculumProblem(unit,1).id,token:'curriculum_a'},{problemId:curriculumProblem(unit,0).id,token:'invalid'}]){
+      await repos.learning.update('u',s=>({...s,curriculumProgress:{[curriculumProgressKey(unit)]:1},curriculumPending:pending as unknown as {problemId:string;token:string}}));
+      const before=await repos.learning.get('u');let failed=false;
+      try{await prepareCurriculum(repos,'u',unit);}catch{failed=true;}
       expect(failed).toBe(true);expect(await repos.learning.get('u')).toEqual(before);
     }
   });

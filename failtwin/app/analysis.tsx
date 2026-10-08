@@ -106,7 +106,7 @@ export default function Analysis() {
   const accent = correct ? colors.success : scoreColor(analysis.recurrenceRisk);
 
   return (
-    <Screen footer={<Button label={correct ? '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => {
+    <Screen footer={<Button label={correct ? problem.curriculumUnitId ? '다음 단원 문제 고르기' : '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => {
       if (correct && problem.curriculumUnitId) router.navigate('/curriculum');
       else router.push(correct ? '/practice' : '/prediction');
     }} />}>
@@ -143,6 +143,7 @@ export default function Analysis() {
         </Section> : null}
       </View>
 
+      {problem.curriculumUnitId ? <ActionRow label="이 단원 다시 연습하기" hint="열어본 기본·응용 문제를 다시 고를 수 있습니다" onPress={() => router.navigate('/curriculum')} /> : null}
       <ActionRow label="실수 패턴 훈련하기" hint="Trap Mode" onPress={() => router.push('/trap')} />
       <ActionRow label="홈으로" onPress={() => goToMain(router)} quiet />
     </Screen>
