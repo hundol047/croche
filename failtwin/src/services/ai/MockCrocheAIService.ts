@@ -1,0 +1,259 @@
+import type {
+  CrocheAIService,
+  AnalyzeInput,
+  PredictInput,
+  TrapInput,
+  GenProblemInput,
+} from './CrocheAIService';
+import type {
+  MistakeAnalysis,
+  Prediction,
+  TrapProblem,
+  Problem,
+  ErrorType,
+} from '@/domain/types';
+import {
+  validateMistakeAnalysis,
+  validatePrediction,
+  validateTrapProblem,
+  validateProblem,
+} from '@/domain/schemas';
+import { errorTypeLabel, errorTypeDescription } from '@/domain/errorTypes';
+import { predictFromDna } from '@/domain/prediction';
+import { sanitizeStrings } from './toneGuard';
+import { clamp, round1 } from '@/utils/clamp';
+import type { Result } from '@/utils/result';
+import { TRAP_TEMPLATES } from './trapTemplates';
+import { inferPracticeErrorType } from '@/domain/practiceEvidence';
+import { assessAnswer } from '@/domain/answerAssessment';
+import { practiceCatalog, practiceProblem, VARIANTS_PER_FAMILY } from '@/content/practiceVariants';
+import { Err } from '@/utils/result';
+
+/**
+ * Fully-working, DETERMINISTIC mock of the Croche AI service. Seedable so demo
+ * and tests are reproducible. It produces the SAME structured JSON shapes a
+ * real model would, so the entire app flow works without any network/SDK.
+ *
+ * Replace with RealCrocheAIService (same interface) once Croche access is
+ * granted — no UI/domain changes needed.
+ */
+export interface MockOptions {
+  /** Simulated latency in ms (0 for tests). */
+  latencyMs?: number;
+  /** Trap template rotation seed. */
+  seed?: number;
+}
+
+export class MockCrocheAIService implements CrocheAIService {
+  readonly kind = 'mock' as const;
+  private latencyMs: number;
+  private trapTurns = new Map<string, number>();
+  private practiceTurns = new Map<string, number>();
+
+  constructor(opts: MockOptions = {}) {
+    this.latencyMs = opts.latencyMs ?? 450;
+  }
+
+  private async delay(): Promise<void> {
+    if (this.latencyMs > 0) await new Promise((r) => setTimeout(r, this.latencyMs));
+  }
+
+  async analyzeMistake(input: AnalyzeInput): Promise<Result<MistakeAnalysis>> {
+    await this.delay();
+    const { problem, attempt } = input;
+    const assessment = assessAnswer(problem, attempt.userAnswer);
+    if (assessment.verdict === 'ungradable') return Err(assessment.guidance);
+    const isCorrect = assessment.verdict === 'correct';
+
+    if (isCorrect) {
+      const analysis: MistakeAnalysis = {
+        isCorrect: true,
+        reason: `정답입니다. ${problem.topic}의 정답과 일치합니다.`,
+        evidence: [`제출한 답: ${attempt.userAnswer}`, `정답 근거: ${problem.explanation}`],
+        correctionStrategy:
+          '지금처럼 답을 확정하기 전 핵심 조건을 한 번 더 확인하는 습관을 유지하세요.',
+        severity: 1,
+        confidence: 0.95,
+        relatedConcepts: [problem.topic],
+        recurrenceRisk: 15,
+      };
+      return validateMistakeAnalysis(sanitizeStrings(analysis, ['reason', 'correctionStrategy', 'evidence']));
+    }
+
+    // A wrong answer establishes a cause only when a bounded comparison supports it.
+    const errorType = inferPracticeErrorType(problem, attempt.userAnswer);
+    const severity = inferSeverity(input);
+    const analysis: MistakeAnalysis = {
+      isCorrect: false,
+      errorType,
+      errorTitle: errorType ? errorTypeLabel(errorType) : undefined,
+      reason: errorType ? buildReason(problem, errorType, attempt.userAnswer) : '답이 정답과 다릅니다. 제출한 답만으로 오답 원인은 확인할 수 없습니다.',
+      evidence: buildEvidence(problem, attempt.userAnswer, attempt.userReasoning),
+      correctionStrategy: errorType ? buildCorrection(errorType) : '정답 해설과 작성한 풀이를 비교하고 다른 답을 입력해보세요.',
+      severity,
+      confidence: errorType ? 0.72 : 0,
+      relatedConcepts: [problem.topic],
+      recurrenceRisk: errorType ? round1(clamp(45 + severity * 8 + input.relevantMemories.length * 3, 0, 100)) : 0,
+    };
+    return validateMistakeAnalysis(
+      sanitizeStrings(analysis, ['reason', 'correctionStrategy', 'evidence', 'errorTitle']),
+    );
+  }
+
+  async predictNextMistake(input: PredictInput): Promise<Result<Prediction>> {
+    await this.delay();
+    // Reuse the deterministic DNA baseline, phrased via memory snippets.
+    const synthetic = input.relevantMemories.map((m) => ({
+      userId: 'ctx',
+      subject: input.subject ?? '',
+      topic: input.topic ?? '',
+      errorType: m.errorType,
+      errorDescription: errorTypeDescription(m.errorType),
+      evidence: [],
+      occurrenceCount: m.occurrenceCount,
+      recentOccurrence: m.recentOccurrence,
+      severity: 3,
+      confidence: 0.7,
+      score: m.score,
+      improvementScore: 0,
+      lastUpdated: m.recentOccurrence,
+    }));
+
+    const base = predictFromDna(synthetic, { subject: input.subject, topic: input.topic });
+    const prediction: Prediction =
+      base ?? {
+        predictedErrorType: 'verification_omission',
+        riskScore: 30,
+        reason: '아직 데이터가 적어 일반적인 검산 생략 위험을 기준으로 예측했어요.',
+        relatedMemories: [],
+      };
+    return validatePrediction(sanitizeStrings(prediction, ['reason', 'relatedMemories']));
+  }
+
+  async generateTrapProblem(input: TrapInput): Promise<Result<TrapProblem>> {
+    await this.delay();
+    if(input.educationLevel && input.educationLevel!=='university') {
+      const level=input.educationLevel, difficulty='hard' as const;
+      const families=practiceCatalog(input.subject,difficulty,level).filter(f=>practiceProblem(input.subject,difficulty,f.id,0,level).targetErrorType===input.targetErrorType);
+      if(!families.length)return Err('EXHAUSTED: 이 학교급의 해당 패턴에는 준비된 Trap이 없습니다. 문제 목록에서 연습해주세요.');
+      const key=`${level}:${input.subject}:${input.targetErrorType}`;
+      const turn=this.trapTurns.get(key)??0;
+      for(let i=turn;i<families.length*VARIANTS_PER_FAMILY;i+=1){
+        const p=practiceProblem(input.subject,difficulty,families[i%families.length]!.id,(Math.floor(i/families.length)+997)%VARIANTS_PER_FAMILY,level);
+        if(input.avoidQuestions?.includes(p.prompt))continue;
+        this.trapTurns.set(key,i+1);
+        return validateTrapProblem({educationLevel:level,subject:p.subject,topic:p.topic,question:p.prompt,answerType:p.answerType,options:p.options,correctAnswer:p.correctAnswer,explanation:p.explanation,targetErrorType:input.targetErrorType,targetedWrongAnswers:[],trapExplanation:'같은 약점을 다른 조건으로 연습합니다. 오답만으로 원인을 특정할 근거가 없으면 HIT를 기록하지 않습니다.',difficulty});
+      }
+      return Err('EXHAUSTED: 준비된 Trap을 모두 열어봤습니다.');
+    }
+    const templates = TRAP_TEMPLATES[input.targetErrorType] ?? [];
+    const matching = templates.filter((t) => t.subject === input.subject);
+    if (!matching.length) return Err('UNAVAILABLE: 이 과목의 해당 패턴 훈련은 아직 준비되지 않았습니다. 기본 문제를 연습해주세요.');
+    const available = matching.filter((t) => !(input.avoidQuestions ?? []).includes(t.question));
+    if (!available.length) return Err('EXHAUSTED: 이 패턴의 준비된 문제를 모두 열어봤습니다. 다른 패턴이나 기본 문제를 선택해주세요.');
+    const unseen = available.filter((t) => !input.recentTopics.includes(t.topic));
+    const pool = unseen.length ? unseen : available;
+    // Rotation is independent of unrelated generateProblem calls.
+    const key = `${input.targetErrorType}:${input.subject}`;
+    const turn = this.trapTurns.get(key) ?? 0;
+    const idx = turn % pool.length;
+    this.trapTurns.set(key, turn + 1);
+    const tpl = pool[idx]!;
+
+    const trap: TrapProblem = {
+      subject: tpl.subject,
+      topic: tpl.topic,
+      question: tpl.question,
+      answerType: tpl.answerType,
+      options: tpl.options,
+      correctAnswer: tpl.correctAnswer,
+      explanation: tpl.explanation,
+      targetErrorType: input.targetErrorType,
+      targetedWrongAnswers: tpl.targetedWrongAnswers,
+      trapExplanation: tpl.trapExplanation,
+      difficulty: tpl.difficulty,
+    };
+    return validateTrapProblem(sanitizeStrings(trap, ['explanation', 'trapExplanation']));
+  }
+
+  async generateProblem(input: GenProblemInput): Promise<Result<Problem>> {
+    await this.delay();
+    const difficulty = input.difficulty ?? 'medium';
+    const families = practiceCatalog(input.subject, difficulty, input.educationLevel).filter(f => !input.topic || f.topic === input.topic);
+    if (!families.length) return Err('지원하지 않는 문제 유형입니다.');
+    const key = `${input.educationLevel??'university'}:${input.subject}:${difficulty}:${input.topic ?? ''}`;
+    const total = families.length * VARIANTS_PER_FAMILY;
+    const turn = this.practiceTurns.get(key) ?? 0;
+    const avoided = new Set(input.avoidPrompts ?? []);
+    for (let i = turn; i < total; i += 1) {
+      const next = practiceProblem(input.subject, difficulty, families[i % families.length]!.id, Math.floor(i / families.length), input.educationLevel);
+      if (avoided.has(next.prompt)) continue;
+      this.practiceTurns.set(key, i + 1);
+      return validateProblem(next);
+    }
+    return Err('EXHAUSTED: 선택한 난이도 또는 유형의 문제를 모두 열어봤습니다. 기본 문제를 다시 연습해주세요.');
+  }
+}
+
+// ───────────────────────── heuristics ─────────────────────────
+
+function inferSeverity(input: AnalyzeInput): number {
+  // Higher severity when the user was very confident but wrong, or when this
+  // error type already recurs in memory.
+  let s = 2;
+  if (input.attempt.confidence === 'high') s += 2;
+  else if (input.attempt.confidence === 'medium') s += 1;
+  const inMemory = input.relevantMemories.some(
+    (m) => m.errorType === input.problem.targetErrorType,
+  );
+  if (inMemory) s += 1;
+  return clamp(s, 1, 5);
+}
+
+function buildReason(problem: Problem, errorType: ErrorType, answer: string): string {
+  const label = errorTypeLabel(errorType);
+  switch (errorType) {
+    case 'condition_omission':
+      return `주어진 정의역이나 전제조건을 모두 반영하지 않아 "${answer}"로 답했어요. 정답 해설과 조건을 하나씩 비교해보세요.`;
+    case 'edge_case_omission':
+      return `답 "${answer}"가 정답의 끝점 조건과 다릅니다. 끝점·경계값을 각각 확인해보세요.`;
+    case 'unit_error':
+      return `답 "${answer}"가 요구 단위의 정답과 다릅니다. 단위 변환을 확인해보세요.`;
+    case 'sign_error':
+      return `답 "${answer}"의 계수나 부호가 정답과 다릅니다. 해설과 각 항을 비교해보세요.`;
+    case 'rushed_reasoning':
+      return `충분히 검토하기 전에 답을 빠르게 확정하면서 "${answer}"로 적었습니다. ${label} 패턴입니다.`;
+    case 'concept_confusion':
+      return `유사하지만 다른 개념을 적용해 "${answer}"로 답했습니다. ${label}입니다.`;
+    default:
+      return `중간 과정에서 계산이 어긋나 "${answer}"가 되었습니다. ${label}로 분류됩니다.`;
+  }
+}
+
+function buildEvidence(problem: Problem, answer: string, reasoning?: string): string[] {
+  const ev = [`제출한 답: ${answer}`, `정답: ${problem.correctAnswer}`];
+  if (reasoning && reasoning.trim().length > 0) {
+    ev.push(`작성한 풀이: "${reasoning.trim().slice(0, 160)}"`);
+  }
+  ev.push(`정답 근거: ${problem.explanation}`);
+  return ev;
+}
+
+function buildCorrection(errorType: ErrorType): string {
+  switch (errorType) {
+    case 'condition_omission':
+      return '계산을 시작하기 전 정의역·분모·전제조건을 적고, 답을 낸 뒤 모든 조건을 만족하는지 확인하세요.';
+    case 'edge_case_omission':
+      return '답을 확정하기 전, 끝점·경계값을 따로 대입해 검증하는 단계를 루틴으로 추가하세요.';
+    case 'unit_error':
+      return '최종 답에 단위를 명시하고, 주어진 값과 요구 단위가 일치하는지 마지막에 점검하세요.';
+    case 'sign_error':
+      return '부호가 바뀌는 단계(이항·제곱·적분)마다 한 줄로 부호를 다시 적어 추적하세요.';
+    case 'rushed_reasoning':
+      return '제출 전 10초 규칙: 답을 확정하기 전 핵심 조건 1개를 소리내어 재확인하세요.';
+    case 'concept_confusion':
+      return '혼동되는 두 개념을 한 문장 정의로 나란히 적어 차이를 분명히 한 뒤 적용하세요.';
+    default:
+      return '중간 계산 결과를 역으로 대입해 검산하는 습관을 들이세요.';
+  }
+}

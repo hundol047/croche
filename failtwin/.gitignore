@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+*.log
+coverage/
+
+# offline verification build output
+.verify-out/
+
+# browser QA artifacts
+test-results/
+playwright-report/
+
+# External exam artifacts pending source and redistribution review
+.content-staging/

@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": "..",
+    "types": [],
+    "paths": {
+      "@/*": ["src/*"],
+      "zod": ["verify/zod-shim/index.ts"]
+    }
+  },
+  "include": [
+    "../src/**/*.ts",
+    "../src/**/*.tsx",
+    "../app/**/*.tsx",
+    "./ui-ambient.d.ts",
+    "./node-ambient.d.ts",
+    "./jsx-runtime.d.ts"
+  ],
+  "exclude": ["../node_modules"]
+}
