@@ -47,6 +47,7 @@ export default function Trap() {
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [guidance, setGuidance] = useState('');
+  const [exhaustionMessage,setExhaustionMessage]=useState('');
   const [exhausted, setExhausted] = useState(false);
   const submitting = useRef(false);
   const [savedAttempt] = useState(canResume ? sessionStore.get('trapAttempt') : undefined);
@@ -77,9 +78,9 @@ export default function Trap() {
     setSaveError(false);
     setGuidance(''); setExhausted(false);
     try {
-      const subject: Subject = (targetEntry?.subject as Subject) ?? '공업수학';
+      const subject: Subject = (targetEntry?.subject as Subject) ?? profile.interests[0] ?? '공업수학';
       const next = await issueTrap(repos, ai, profile.userId, {
-        targetErrorType: target, subject,
+        targetErrorType: target, subject, educationLevel: targetEntry ? targetEntry.educationLevel??'university' : profile.educationLevel,
         recentTopics: [...dna.slice(0, 3).map((e) => e.topic), ...trapHistory.map((t) => t.topic ?? ''), ...(trap ? [trap.topic] : [])],
         relevantMemories: buildMemoryContext(dna, { subject, topic: targetEntry?.topic ?? '' }),
       });
@@ -89,7 +90,7 @@ export default function Trap() {
       setAnswer('');
       setReasoning('');
       setPhase('solving');
-    } catch (e) { setExhausted(e instanceof Error && e.message.startsWith('EXHAUSTED:')); setPhase('error'); }
+    } catch (e) { setExhausted(e instanceof Error && e.message.startsWith('EXHAUSTED:'));setExhaustionMessage(e instanceof Error?e.message.replace(/^EXHAUSTED: /,''):''); setPhase('error'); }
   };
 
   const submit = async () => {
@@ -132,7 +133,7 @@ export default function Trap() {
         <Button label="집중 훈련 시작" variant="trap" onPress={generate} testID="trap-start" />
       </> : null}
       {phase === 'generating' ? <LoadingState message="연습 문제 준비 중" /> : null}
-      {phase === 'error' ? <>{exhausted ? <Body style={styles.introNote}>이 패턴의 준비된 문제를 모두 열어봤습니다. 기본 문제를 연습하거나 다른 실수 패턴을 선택하세요.</Body> : <ErrorState message="문제 생성이나 저장에 실패했어요." onRetry={generate} />}<ActionRow label="기본 문제 풀기" onPress={() => router.navigate('/practice')} /><ActionRow label="홈으로" onPress={() => goToMain(router)} quiet /></> : null}
+      {phase === 'error' ? <>{exhausted ? <Body style={styles.introNote}>{exhaustionMessage}</Body> : <ErrorState message="문제 생성이나 저장에 실패했어요." onRetry={generate} />}<ActionRow label="기본 문제 풀기" onPress={() => router.navigate('/practice')} /><ActionRow label="홈으로" onPress={() => goToMain(router)} quiet /></> : null}
       {saveError ? <ErrorState message="결과를 저장하지 못했어요. 다시 시도해주세요." onRetry={submit} /> : null}
 
       {phase === 'solving' && trap ? <>
@@ -141,7 +142,7 @@ export default function Trap() {
           <Caption>{trap.subject} · {trap.topic}</Caption>
           <Text style={styles.question}>{trap.question}</Text>
           {trap.answerType === 'mcq' && trap.options ? <View style={styles.options}>
-            {trap.options.map((o) => <Text key={o} style={styles.option}>• {o}</Text>)}
+            {trap.options.map((o) => <Pressable key={o} accessibilityRole="button" accessibilityLabel={`보기 ${o}`} aria-pressed={answer===o} accessibilityState={{selected:answer===o}} onPress={()=>{setAnswer(o);setGuidance('');}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>)}
           </View> : null}
         </Card>
         <Caption>내 답</Caption>
@@ -217,6 +218,8 @@ const styles = StyleSheet.create({
   targetTagText: { ...typography.caption, color: colors.brand, marginLeft: spacing.sm },
   question: { ...typography.body, color: colors.text, marginTop: spacing.sm },
   options: { marginTop: spacing.md },
+  optionButton:{minHeight:48,justifyContent:'center',padding:spacing.md,borderWidth:1,borderColor:colors.controlBorder,marginBottom:spacing.sm,borderRadius:radius.md},
+  selectedOption:{borderColor:colors.brand},
   option: { ...typography.body, color: colors.text, marginBottom: spacing.xs },
   input: { ...typography.body, color: colors.text, backgroundColor: colors.surface,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.controlBorder,

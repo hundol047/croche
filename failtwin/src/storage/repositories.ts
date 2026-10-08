@@ -67,7 +67,8 @@ export class ProfileRepo {
 
 export interface LearningState {
   issued?: IssuedQuestion[];
-  /** Versioned next variant per subject/difficulty/family; at most 45 counters in v2. */
+  practiceSelection?: {educationLevel: import('@/domain/types').EducationLevel; subject: import('@/domain/types').Subject; difficulty: import('@/domain/types').Problem['difficulty']};
+  /** Versioned next variant per subject/difficulty/family; 45 university counters plus 360 school counters. */
   practiceProgress?: Record<string, number>;
   dna: ErrorDnaEntry[];
   mistakes: MistakeRecord[];

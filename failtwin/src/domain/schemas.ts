@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Result } from '@/utils/result';
 import { Ok, Err } from '@/utils/result';
+import { EDUCATION_LEVELS, SUBJECTS, isCurriculumSubject } from './curriculum';
 import type { MistakeAnalysis, Prediction, TrapProblem, Problem } from './types';
 
 /**
@@ -18,7 +19,8 @@ import type { MistakeAnalysis, Prediction, TrapProblem, Problem } from './types'
  */
 
 const answerType = z.enum(['numeric', 'text', 'mcq']);
-const subject = z.enum(['공업수학', '일반물리', 'Python 프로그래밍']);
+const subject = z.enum(SUBJECTS);
+const educationLevel = z.enum(EDUCATION_LEVELS).optional();
 const difficulty = z.enum(['easy', 'medium', 'hard']);
 
 // errorType is an open string (AI may extend the taxonomy) but must be a
@@ -52,6 +54,7 @@ export const predictionSchema = z.object({
 export const trapProblemSchema = z
   .object({
     subject,
+    educationLevel,
     topic: z.string().min(1).max(120),
     question: z.string().min(1).max(2000),
     answerType,
@@ -63,6 +66,7 @@ export const trapProblemSchema = z
     trapExplanation: z.string().min(1).max(800),
     difficulty,
   })
+  .refine((p)=>isCurriculumSubject(p.educationLevel??'university',p.subject), {message:'subject is not supported at this education level',path:['subject']})
   .refine(
     (p) => (p.answerType === 'mcq' ? Array.isArray(p.options) && p.options.length >= 2 : true),
     { message: 'mcq problems require options', path: ['options'] },
@@ -76,6 +80,7 @@ export const problemSchema = z
   .object({
     id: z.string().min(1),
     subject,
+    educationLevel,
     topic: z.string().min(1).max(120),
     prompt: z.string().min(1).max(2000),
     answerType,
@@ -84,8 +89,10 @@ export const problemSchema = z
     explanation: z.string().min(1).max(1200),
     difficulty,
     source: z.enum(['bank', 'ai', 'trap']),
+    contentOrigin: z.enum(['parameterized', 'original-csat']).optional(),
     targetErrorType: errorType.optional(),
   })
+  .refine((p)=>isCurriculumSubject(p.educationLevel??'university',p.subject), {message:'subject is not supported at this education level',path:['subject']})
   .refine(
     (p) => (p.answerType === 'mcq' ? (p.options ?? []).includes(p.correctAnswer) || p.correctAnswer.split(/,\s*/).every((a: string) => (p.options ?? []).includes(a.trim())) : true),
     { message: 'correctAnswer must be one of options for mcq', path: ['correctAnswer'] },

@@ -7,6 +7,7 @@ import type {
   MemorySnippet,
   Subject,
   ErrorType,
+  EducationLevel,
 } from '@/domain/types';
 import type { Result } from '@/utils/result';
 
@@ -32,6 +33,7 @@ export interface PredictInput {
 }
 
 export interface TrapInput {
+  educationLevel?: EducationLevel;
   /** Previously issued question text, including abandoned questions. */
   avoidQuestions?: string[];
   /** The strongest error type to target. */
@@ -43,6 +45,7 @@ export interface TrapInput {
 }
 
 export interface GenProblemInput {
+  educationLevel?: EducationLevel;
   avoidPrompts?: string[];
   subject: Subject;
   topic?: string;

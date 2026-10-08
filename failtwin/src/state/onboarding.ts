@@ -1,10 +1,11 @@
 import type { Repositories } from '@/storage/repositories';
-import type { UserProfile, Subject, LearningGoal } from '@/domain/types';
+import type { UserProfile, Subject, LearningGoal, EducationLevel } from '@/domain/types';
 import { buildDemoDna, DEMO_USER_ID, DEMO_NAME } from '@/constants/demo';
 import { uid } from '@/utils/id';
 import { nowIso } from '@/utils/date';
 
 export interface OnboardingInput {
+  educationLevel?: EducationLevel;
   name: string;
   goal: LearningGoal;
   interests: Subject[];
@@ -17,6 +18,7 @@ export async function createRealProfile(
 ): Promise<UserProfile> {
   const profile: UserProfile = {
     userId: uid('user'),
+    educationLevel: input.educationLevel ?? 'university',
     name: input.name.trim() || '학습자',
     goal: input.goal,
     interests: input.interests,

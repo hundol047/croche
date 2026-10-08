@@ -21,7 +21,7 @@ export async function recordPractice(
     if (target) {
       if (!analysis.isCorrect) {
         dna = upsertEntry(dna, applyMistake(existing, {
-          userId, subject: problem.subject, topic: problem.topic, errorType: target,
+          userId, subject: problem.subject, educationLevel:problem.educationLevel, topic: problem.topic, errorType: target,
           severity: analysis.severity, confidence: analysis.confidence,
           errorDescription: analysis.reason, evidence: analysis.evidence, at: attempt.createdAt,
         }));
@@ -30,7 +30,7 @@ export async function recordPractice(
       }
     }
     const record: MistakeRecord = {
-      id: `mistake:${attempt.id}`, userId, problemId: problem.id, subject: problem.subject,
+      id: `mistake:${attempt.id}`, userId, problemId: problem.id, subject: problem.subject, educationLevel:problem.educationLevel,
       topic: problem.topic, isCorrect: analysis.isCorrect, errorType: analysis.errorType,
       analysis, attempt, createdAt: attempt.createdAt,
       beforeScore: target && (!analysis.isCorrect || existing) ? existing?.score ?? 0 : null,
@@ -57,7 +57,7 @@ export async function recordTrap(
       dna = upsertEntry(dna, applyCorrection(existing, { confidence: attempt.confidence, at: attempt.createdAt }));
     } else if (target) {
       dna = upsertEntry(dna, applyMistake(existing, {
-        userId: attempt.userId, subject: trap.subject, topic: trap.topic,
+        userId: attempt.userId, subject: trap.subject, educationLevel:trap.educationLevel, topic: trap.topic,
         errorType: target, severity: 3, at: attempt.createdAt,
       }));
     }

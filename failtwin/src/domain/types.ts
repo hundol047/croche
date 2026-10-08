@@ -1,14 +1,17 @@
+import type { Subject, EducationLevel } from './curriculum';
 import type { ErrorType } from './errorTypes';
 
 export type { ErrorType };
 
 export type Confidence = 'low' | 'medium' | 'high';
 export type AnswerType = 'numeric' | 'text' | 'mcq';
-export type Subject = '공업수학' | '일반물리' | 'Python 프로그래밍';
-export type LearningGoal = '대학교 전공' | '수능' | '자격증' | '코딩' | '기타';
+export type { Subject, EducationLevel } from './curriculum';
+export type LearningGoal = '학교 공부' | '대학교 전공' | '수능' | '자격증' | '코딩' | '기타';
 export type ModelTier = 'cheap' | 'quality';
 
 export interface UserProfile {
+  /** Missing in legacy profiles means university. */
+  educationLevel?: EducationLevel;
   userId: string;
   name: string;
   goal: LearningGoal;
@@ -22,6 +25,7 @@ export interface UserProfile {
  * record. Fields map 1:1 to the Memory concept required by the spec.
  */
 export interface ErrorDnaEntry {
+  educationLevel?: EducationLevel;
   userId: string;
   subject: string;
   topic: string;
@@ -38,6 +42,8 @@ export interface ErrorDnaEntry {
 }
 
 export interface Problem {
+  educationLevel?: EducationLevel;
+  contentOrigin?: 'parameterized' | 'original-csat';
   id: string;
   subject: Subject;
   topic: string;
@@ -86,6 +92,7 @@ export interface Prediction {
 
 /** Structured AI output for a generated trap problem. */
 export interface TrapProblem {
+  educationLevel?: EducationLevel;
   /** Explicit misconception answers used by the deterministic Mock evaluator. */
   targetedWrongAnswers?: string[];
   subject: Subject;
@@ -101,6 +108,7 @@ export interface TrapProblem {
 }
 
 export interface MistakeRecord {
+  educationLevel?: EducationLevel;
   beforeScore?: number | null;
   afterScore?: number | null;
   id: string;

@@ -46,6 +46,7 @@ export class RealCrocheAIService implements CrocheAIService {
         user: JSON.stringify({
           problem: {
             subject: input.problem.subject,
+            educationLevel: input.problem.educationLevel,
             topic: input.problem.topic,
             prompt: input.problem.prompt,
             correctAnswer: input.problem.correctAnswer,
@@ -89,6 +90,7 @@ export class RealCrocheAIService implements CrocheAIService {
         user: JSON.stringify({
           targetErrorType: input.targetErrorType,
           subject: input.subject,
+          educationLevel: input.educationLevel,
           avoidTopics: input.recentTopics,
           avoidQuestions: input.avoidQuestions ?? [],
         }),

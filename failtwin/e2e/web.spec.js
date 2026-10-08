@@ -325,7 +325,7 @@ test('30,000 per subject: every difficulty grades correctly and topic choice per
     await page.getByRole('button', { name: item.subject, exact: true }).click();
     const label = ['쉬움', '보통', '어려움'][i];
     await page.getByRole('button', { name: label, exact: true }).click();
-    await expect(page.getByText(`${item.subject} 30,000개 · 난이도별 10,000개`, { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(page.getByText(`대학교 ${item.subject} 30,000개 · 난이도별 10,000개`, { exact: true }).filter({ visible: true })).toBeVisible();
     await expect(page.getByText(`${label} · 남은 10,000 / 10,000개`, { exact: true }).filter({ visible: true })).toBeVisible();
     if (item.subject === '공업수학' && i === 0) await capture(page, 'bank-easy');
     if (item.subject === '일반물리' && i === 2) await capture(page, 'bank-hard');
@@ -342,11 +342,13 @@ test('30,000 per subject: every difficulty grades correctly and topic choice per
   }
   await page.goto('/practice');
   await page.getByRole('button', { name: '공업수학', exact: true }).click();
+  await page.getByRole('button', { name: '보통', exact: true }).click();
   await page.getByRole('button', { name: '초기값과 지수함수 유형 풀기', exact: true }).click();
   await page.getByLabel('답 입력', { exact: true }).fill('3e^(-2x)');
   await page.getByTestId('submit-answer').filter({ visible: true }).click();
   await expect(page.getByText('정답입니다!', { exact: true }).filter({ visible: true })).toBeVisible();
   await page.goto('/practice');
+  await page.getByRole('button', { name: '보통', exact: true }).click();
   await page.getByRole('button', { name: '초기값과 지수함수 유형 풀기', exact: true }).click();
   await page.getByLabel('답 입력', { exact: true }).fill('3e^(-3x)');
   await page.getByTestId('submit-answer').filter({ visible: true }).click();
@@ -400,7 +402,7 @@ test('ungradable Trap stays neutral; reload, HIT, correction and exhaustion stay
   await page.getByTestId('trap-submit').filter({ visible: true }).click();
   await expect(page.getByText('Trap 극복', { exact: true }).filter({ visible: true })).toBeVisible();
   await page.getByRole('button', { name: '다시 도전', exact: true }).click();
-  await expect(page.getByText('이 패턴의 준비된 문제를 모두 열어봤습니다. 기본 문제를 연습하거나 다른 실수 패턴을 선택하세요.', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('이 패턴의 준비된 문제를 모두 열어봤습니다. 다른 패턴이나 기본 문제를 선택해주세요.', { exact: true }).filter({ visible: true })).toBeVisible();
   expect((await learning(page)).traps).toHaveLength(2);
   expect((await learning(page)).issued.filter((q) => q.kind === 'trap')).toHaveLength(2);
   await capture(page, 'trap-exhausted');

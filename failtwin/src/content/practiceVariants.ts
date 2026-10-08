@@ -1,4 +1,6 @@
-import type { ErrorType, Problem, Subject } from '@/domain/types';
+import { isUniversitySubject, type UniversitySubject } from '@/domain/curriculum';
+import { schoolFamilies, schoolProblem } from './schoolBank';
+import type { ErrorType, Problem, Subject, EducationLevel } from '@/domain/types';
 
 export type Difficulty = Problem['difficulty'];
 export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
@@ -118,23 +120,27 @@ const python: Record<Difficulty, Family[]> = {
     }, 'concept_confusion'),
   ],
 };
-const bank: Record<Subject, Record<Difficulty, Family[]>> = { '공업수학': math, '일반물리': physics, 'Python 프로그래밍': python };
+const bank: Record<UniversitySubject, Record<Difficulty, Family[]>> = { '공업수학': math, '일반물리': physics, 'Python 프로그래밍': python };
 
-export function practiceCatalog(subject: Subject, difficulty: Difficulty): PracticeFamily[] {
+export function practiceCatalog(subject: Subject, difficulty: Difficulty, level: EducationLevel = 'university'): PracticeFamily[] {
+  if(level!=='university')return schoolFamilies(level,subject,difficulty).map(({id,topic})=>({id,topic,count:VARIANTS_PER_FAMILY}));
+  if(!isUniversitySubject(subject))throw new Error('이 학교급에서 지원하지 않는 과목입니다.');
   return bank[subject][difficulty].map(({ id, topic }) => ({ id, topic, count: VARIANTS_PER_FAMILY }));
 }
 
 /** Lazy mixed-radix enumeration: 20×10×10 unique condition combinations per family. */
-export function practiceProblem(subject: Subject, difficulty: Difficulty, familyId: string, variant: number): Problem {
+export function practiceProblem(subject: Subject, difficulty: Difficulty, familyId: string, variant: number, level: EducationLevel = 'university'): Problem {
   if (!Number.isInteger(variant) || variant<0 || variant>=VARIANTS_PER_FAMILY) throw new Error('출제 범위를 벗어났습니다.');
+  if(level!=='university')return schoolProblem(level,subject,difficulty,familyId,variant);
+  if(!isUniversitySubject(subject))throw new Error('이 학교급에서 지원하지 않는 과목입니다.');
   const f=bank[subject][difficulty].find(item=>item.id===familyId);
   if (!f) throw new Error('지원하지 않는 문제 유형입니다.');
   const a=variant%20+1, b=Math.floor(variant/20)%10+1, c=Math.floor(variant/200)+1;
   return { id: `practice:${PRACTICE_BANK_VERSION}:${subject}:${difficulty}:${f.id}:${variant}`, subject, difficulty, topic:f.topic, source:'bank', targetErrorType:f.target, ...f.build(a,b,c) };
 }
 
-export function practiceProblemAt(subject: Subject, difficulty: Difficulty, index: number): Problem {
+export function practiceProblemAt(subject: Subject, difficulty: Difficulty, index: number, level: EducationLevel = 'university'): Problem {
   if (!Number.isInteger(index) || index<0 || index>=PROBLEMS_PER_DIFFICULTY) throw new Error('출제 범위를 벗어났습니다.');
-  const families=bank[subject][difficulty];
-  return practiceProblem(subject, difficulty, families[index%families.length]!.id, Math.floor(index/families.length));
+  const families=practiceCatalog(subject,difficulty,level);
+  return practiceProblem(subject, difficulty, families[index%families.length]!.id, Math.floor(index/families.length),level);
 }

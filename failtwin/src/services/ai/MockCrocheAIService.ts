@@ -131,6 +131,20 @@ export class MockCrocheAIService implements CrocheAIService {
 
   async generateTrapProblem(input: TrapInput): Promise<Result<TrapProblem>> {
     await this.delay();
+    if(input.educationLevel && input.educationLevel!=='university') {
+      const level=input.educationLevel, difficulty='hard' as const;
+      const families=practiceCatalog(input.subject,difficulty,level).filter(f=>practiceProblem(input.subject,difficulty,f.id,0,level).targetErrorType===input.targetErrorType);
+      if(!families.length)return Err('EXHAUSTED: 이 학교급의 해당 패턴에는 준비된 Trap이 없습니다. 문제 목록에서 연습해주세요.');
+      const key=`${level}:${input.subject}:${input.targetErrorType}`;
+      const turn=this.trapTurns.get(key)??0;
+      for(let i=turn;i<families.length*VARIANTS_PER_FAMILY;i+=1){
+        const p=practiceProblem(input.subject,difficulty,families[i%families.length]!.id,(Math.floor(i/families.length)+997)%VARIANTS_PER_FAMILY,level);
+        if(input.avoidQuestions?.includes(p.prompt))continue;
+        this.trapTurns.set(key,i+1);
+        return validateTrapProblem({educationLevel:level,subject:p.subject,topic:p.topic,question:p.prompt,answerType:p.answerType,options:p.options,correctAnswer:p.correctAnswer,explanation:p.explanation,targetErrorType:input.targetErrorType,targetedWrongAnswers:[],trapExplanation:'같은 약점을 다른 조건으로 연습합니다. 오답만으로 원인을 특정할 근거가 없으면 HIT를 기록하지 않습니다.',difficulty});
+      }
+      return Err('EXHAUSTED: 준비된 Trap을 모두 열어봤습니다.');
+    }
     const templates = TRAP_TEMPLATES[input.targetErrorType] ?? TRAP_TEMPLATES['verification_omission'];
     const list = templates.filter((t) => t.subject === input.subject);
     const matching = list.length > 0 ? list : templates;
@@ -164,14 +178,14 @@ export class MockCrocheAIService implements CrocheAIService {
   async generateProblem(input: GenProblemInput): Promise<Result<Problem>> {
     await this.delay();
     const difficulty = input.difficulty ?? 'medium';
-    const families = practiceCatalog(input.subject, difficulty).filter(f => !input.topic || f.topic === input.topic);
+    const families = practiceCatalog(input.subject, difficulty, input.educationLevel).filter(f => !input.topic || f.topic === input.topic);
     if (!families.length) return Err('지원하지 않는 문제 유형입니다.');
-    const key = `${input.subject}:${difficulty}:${input.topic ?? ''}`;
+    const key = `${input.educationLevel??'university'}:${input.subject}:${difficulty}:${input.topic ?? ''}`;
     const total = families.length * VARIANTS_PER_FAMILY;
     const turn = this.practiceTurns.get(key) ?? 0;
     const avoided = new Set(input.avoidPrompts ?? []);
     for (let i = turn; i < total; i += 1) {
-      const next = practiceProblem(input.subject, difficulty, families[i % families.length]!.id, Math.floor(i / families.length));
+      const next = practiceProblem(input.subject, difficulty, families[i % families.length]!.id, Math.floor(i / families.length), input.educationLevel);
       if (avoided.has(next.prompt)) continue;
       this.practiceTurns.set(key, i + 1);
       return validateProblem(next);

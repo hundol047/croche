@@ -13,6 +13,7 @@ import { useApp } from '@/state/AppContext';
 import { sessionStore } from '@/state/sessionStore';
 import { uid } from '@/utils/id';
 import { nowIso } from '@/utils/date';
+import { educationLabel } from '@/domain/curriculum';
 import type { Confidence, Attempt } from '@/domain/types';
 
 export default function Solve() {
@@ -66,7 +67,7 @@ export default function Solve() {
         <Pressable accessibilityRole="button" accessibilityLabel="문제 목록으로 돌아가기" onPress={() => router.navigate('/practice')} hitSlop={12}>
           <View style={styles.back}><ArrowIcon direction="left" /></View>
         </Pressable>
-        <Caption style={styles.context}>{problem.subject} · {problem.topic}</Caption>
+        <Caption style={styles.context}>{educationLabel[problem.educationLevel??'university']} · {problem.subject} · {problem.topic}</Caption>
       </View>
 
       <View style={styles.question}>
@@ -75,9 +76,9 @@ export default function Solve() {
         {problem.answerType === 'mcq' && problem.options ? (
           <View style={styles.options}>
             {problem.options.map((o) => (
-              <Text key={o} style={styles.option}>• {o}</Text>
+              <Pressable key={o} accessibilityRole="button" aria-pressed={answer===o} accessibilityState={{selected:answer===o}} accessibilityLabel={`보기 ${o}`} onPress={()=>{setAnswer(o);setGuidance('');}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>
             ))}
-            <Caption style={styles.mcqHint}>정답을 입력란에 적어주세요 (복수 정답은 쉼표로).</Caption>
+            <Caption style={styles.mcqHint}>보기를 선택하거나 직접 입력하세요. 복수 정답은 쉼표로 입력하세요.</Caption>
           </View>
         ) : null}
       </View>
@@ -130,6 +131,8 @@ const styles = StyleSheet.create({
   guidanceTitle: { ...typography.bodyStrong, color: colors.text, marginBottom: spacing.xs },
   prompt: { ...typography.body, color: colors.text, lineHeight: 24 },
   options: { marginTop: spacing.md },
+  optionButton: {minHeight:48,justifyContent:'center',padding:spacing.md,borderWidth:1,borderColor:colors.controlBorder,marginBottom:spacing.sm,borderRadius:radius.md},
+  selectedOption:{borderColor:colors.brand,backgroundColor:colors.surface},
   option: { ...typography.body, color: colors.text, marginBottom: 4 },
   mcqHint: { marginTop: spacing.sm },
   input: {

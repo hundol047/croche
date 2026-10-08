@@ -1,5 +1,5 @@
 import { goToMain } from '@/utils/navigation';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -10,12 +10,14 @@ import { Pill } from '@/components/Pill';
 import { Title, SectionTitle, Body, Caption } from '@/components/typography';
 import { ArrowIcon } from '@/components/icons';
 import { colors, spacing, typography } from '@/constants/theme';
-import { DEMO_SUBJECTS, problemsBySubject } from '@/content/problems';
+import { problemsBySubject } from '@/content/problems';
 import { useApp } from '@/state/AppContext';
 import { sessionStore } from '@/state/sessionStore';
-import type { Subject, Problem } from '@/domain/types';
+import type { Subject, Problem, EducationLevel } from '@/domain/types';
 import { issuePractice, practiceAvailability } from '@/domain/questionIssuance';
-import { DIFFICULTIES, PROBLEMS_PER_DIFFICULTY, PROBLEMS_PER_SUBJECT, type Difficulty } from '@/content/practiceVariants';
+import { DIFFICULTIES, PROBLEMS_PER_DIFFICULTY, PROBLEMS_PER_SUBJECT, practiceProblemAt, type Difficulty } from '@/content/practiceVariants';
+
+import { EDUCATION_LEVELS, educationLabel, curriculumSubjects, curriculumDescription, isCurriculumSubject } from '@/domain/curriculum';
 
 type Availability = ReturnType<typeof practiceAvailability>;
 const number = (n: number) => n.toLocaleString('ko-KR');
@@ -29,7 +31,9 @@ const difficultyHint: Record<Difficulty, string> = {
 export default function PracticeIndex() {
   const router = useRouter();
   const { ai, repos, profile } = useApp();
-  const [subject, setSubject] = useState<Subject>('공업수학');
+  const [level,setLevel]=useState<EducationLevel>(profile?.educationLevel??'university');
+  const [ready,setReady]=useState(false);
+  const [subject, setSubject] = useState<Subject>(profile?.interests.find(s=>isCurriculumSubject(profile.educationLevel??'university',s))??curriculumSubjects[profile?.educationLevel??'university'][0]!);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [generating, setGenerating] = useState(false);
   const busy = useRef(false);
@@ -37,10 +41,22 @@ export default function PracticeIndex() {
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [exhausted, setExhausted] = useState(false);
 
+  useEffect(()=>{
+    let active=true;
+    if(profile)void repos.learning.get(profile.userId).then(s=>{
+      if(!active)return;
+      const selection=s.practiceSelection;
+      if(selection && EDUCATION_LEVELS.includes(selection.educationLevel) && isCurriculumSubject(selection.educationLevel,selection.subject) && DIFFICULTIES.includes(selection.difficulty)){
+        setLevel(selection.educationLevel);setSubject(selection.subject);setDifficulty(selection.difficulty);
+      }
+      setReady(true);
+    }).catch(()=>{if(active){setReady(true);setError(true);}});
+    return()=>{active=false;};
+  },[repos,profile]);
   const loadAvailability = useCallback(async () => {
-    if (!profile || ai.kind !== 'mock') return null;
-    return practiceAvailability(await repos.learning.get(profile.userId), subject, difficulty);
-  }, [repos, profile, ai, subject, difficulty]);
+    if (!ready || !profile || ai.kind !== 'mock') return null;
+    return practiceAvailability(await repos.learning.get(profile.userId), subject, difficulty, level);
+  }, [repos, profile, ai, subject, difficulty, level, ready]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -59,7 +75,7 @@ export default function PracticeIndex() {
     if (!profile || busy.current) return;
     busy.current = true; setGenerating(true); setError(false);
     try {
-      const next = await issuePractice(repos, ai, profile.userId, subject, difficulty, topic);
+      const next = await issuePractice(repos, ai, profile.userId, subject, difficulty, topic, level);
       setAvailability(await loadAvailability());
       await openProblem(next);
     } catch (e) {
@@ -73,14 +89,18 @@ export default function PracticeIndex() {
     <Screen>
       <Title>문제 풀기</Title>
       <Body muted style={styles.sub}>과목과 난이도를 고르고 연습을 시작하세요.</Body>
+      <Caption>학습 단계</Caption>
+      <View style={styles.choices}>{EDUCATION_LEVELS.map(l=><Pill key={l} label={educationLabel[l]} selected={level===l} onPress={generating?undefined:()=>{setLevel(l);setSubject(curriculumSubjects[l][0]!);}} />)}</View>
+      <Caption>과목</Caption>
       <View style={styles.choices}>
-        {DEMO_SUBJECTS.map(s => <Pill key={s} label={s} selected={subject === s} onPress={generating ? undefined : () => setSubject(s)} />)}
+        {curriculumSubjects[level].map(s => <Pill key={s} label={s} selected={subject === s} onPress={generating ? undefined : () => setSubject(s)} />)}
       </View>
       <View style={styles.choices}>
         {DIFFICULTIES.map(d => <Pill key={d} label={difficultyLabel(d)} selected={difficulty === d} onPress={generating ? undefined : () => setDifficulty(d)} />)}
       </View>
       <Body muted>{difficultyHint[difficulty]}</Body>
-      <Caption style={styles.hint}>{ai.kind === 'mock' ? `${subject} ${number(PROBLEMS_PER_SUBJECT)}개 · 난이도별 ${number(PROBLEMS_PER_DIFFICULTY)}개` : '선택한 과목과 난이도로 문제를 요청합니다.'}</Caption>
+      <Caption style={styles.hint}>{curriculumDescription[level]}</Caption>
+      <Caption style={styles.hint}>{ai.kind === 'mock' ? `${educationLabel[level]} ${subject} ${number(PROBLEMS_PER_SUBJECT)}개 · 난이도별 ${number(PROBLEMS_PER_DIFFICULTY)}개` : '선택한 과목과 난이도로 문제를 요청합니다.'}</Caption>
       <Button label="새 문제 풀기" loading={generating} disabled={exhausted || (ai.kind === 'mock' && !availability)} onPress={() => generate()} testID="generate-problem" />
       <Caption style={styles.hint}>{remaining !== undefined ? `${difficultyLabel(difficulty)} · 남은 ${number(remaining)} / ${number(PROBLEMS_PER_DIFFICULTY)}개` : '새 문제도 같은 학습 기록에 연결됩니다.'}</Caption>
       {exhausted ? <Body>선택한 난이도의 문제를 모두 열어봤습니다. 다른 난이도나 아래 기본 문제를 선택하세요.</Body> : null}
@@ -97,13 +117,13 @@ export default function PracticeIndex() {
             <ArrowIcon size={18} />
           </Pressable>)}
         </View>
-        <Caption>검증된 유형의 조건 조합 문제입니다. 이미 열린 문제는 다음 출제에서 제외됩니다. Mock AI · Croche 미연결</Caption>
+        <Caption>유형별 조건·지문 조합 문제입니다. 독립적으로 집필한 기출 문항 수가 아닙니다. 이미 열린 문제는 다음 출제에서 제외됩니다. Mock AI · Croche 미연결</Caption>
       </View> : null}
 
       <View style={styles.section}>
-        <SectionTitle>기본 문제 다시 풀기</SectionTitle>
+        <SectionTitle>{level==='university'?'기본 문제 다시 풀기':'유형별 예시 다시 풀기'}</SectionTitle>
         <View style={styles.list}>
-          {problemsBySubject(subject).map(p => <Pressable key={p.id} disabled={generating} accessibilityState={{ disabled: generating }} accessibilityRole="button" accessibilityLabel={`${p.topic} 문제 풀기`}
+          {(level==='university'?problemsBySubject(subject):[0,1,2,3,4].map(i=>practiceProblemAt(subject,difficulty,i,level))).map(p => <Pressable key={p.id} disabled={generating} accessibilityState={{ disabled: generating }} accessibilityRole="button" accessibilityLabel={`${p.topic} 문제 풀기`}
             onPress={() => { void openProblem(p).catch(() => setError(true)); }} style={({ pressed }) => [styles.problem, pressed ? styles.pressed : undefined]}>
             <View style={styles.problemHeader}>
               <Text style={styles.topic}>{p.topic}</Text>

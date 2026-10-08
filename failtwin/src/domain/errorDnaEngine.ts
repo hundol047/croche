@@ -1,7 +1,7 @@
 import { DNA_CONFIG, CONFIDENCE_LEVEL } from '@/constants/errorDna';
 import { clamp, round1 } from '@/utils/clamp';
 import { nowIso, daysBetween } from '@/utils/date';
-import type { ErrorDnaEntry, ErrorType, Confidence } from './types';
+import type { ErrorDnaEntry, ErrorType, Confidence, EducationLevel } from './types';
 import { errorTypeDescription } from './errorTypes';
 
 /**
@@ -13,6 +13,7 @@ import { errorTypeDescription } from './errorTypes';
 export interface MistakeInput {
   userId: string;
   subject: string;
+  educationLevel?: EducationLevel;
   topic: string;
   errorType: ErrorType;
   errorDescription?: string;
@@ -27,6 +28,7 @@ function emptyEntry(input: MistakeInput): ErrorDnaEntry {
   return {
     userId: input.userId,
     subject: input.subject,
+    educationLevel: input.educationLevel,
     topic: input.topic,
     errorType: input.errorType,
     errorDescription: input.errorDescription ?? errorTypeDescription(input.errorType),
@@ -64,6 +66,7 @@ export function applyMistake(
   return {
     ...base,
     subject: input.subject,
+    educationLevel: input.educationLevel,
     topic: input.topic,
     errorDescription: input.errorDescription ?? base.errorDescription,
     evidence: mergeEvidence(base.evidence, input.evidence),

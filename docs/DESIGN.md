@@ -89,3 +89,32 @@ DNA 점수 엔진과 리포트 집계는 유지했습니다. 채점과 출제 �
 
 소진 화면은 9,999개를 이미 열어본 테스트 이력에서 마지막 문제를 실제로 출제·정답 제출한 뒤 캡처합니다.
 실제 사용자의 10,000회 풀이 기록이 아닙니다. [문제 은행](PROBLEM_BANK.md)에 구성과 저장 정책을 기록했습니다.
+
+## 학교급·한국사 화면 확장 · 2026-10-08
+
+대학만 있던 선택을 초·중·고·대학·수능으로 넓혔습니다. 과목과 난이도를 고른 뒤 ‘새 문제 풀기’를
+주요 행동으로 유지합니다. 유형 선택과 예시 재풀기는 구분선 목록에 배치합니다.
+학교급·과목·난이도의 최근 선택을 복원하고, 대학의 기존 시연과 학습 기록을 보존합니다.
+
+객관식은 긴 보기 내용을 다시 입력할 필요 없이 눌러서 선택할 수 있습니다. 버튼과 입력칸은 구분하고,
+44px 이상 터치 영역·키보드 선택·선택 상태를 유지합니다. 숫자/수식과 복수 정답 직접 입력도 유지합니다.
+새 학습 정보는 기존 글자·색·간격 체계를 사용하며 그라데이션·그림자·장식용 이모지·새 UI 프레임워크는
+추가하지 않습니다. 큰 수는 보조 글자로 표시하고 Mock·미연결과 수능형 자체 제작 여부를 읽을 수 있게 둡니다.
+
+### 전후 및 최종 캡처
+
+이전 화면은 커밋 `37805e687f178951c033561da5037c6f5e442254`의 캡처를 보존했습니다.
+아래 최종 화면은 현재 프로덕션 Web export를 실제 Chromium으로 연 것입니다.
+긴 화면은 ScrollView의 아래쪽도 별도로 캡처했습니다.
+
+| 확인 내용 | 변경 전 | 변경 후 |
+|---|---|---|
+| 온보딩의 학습 단계·한국사 | [대학 중심 375px](screenshots/before-school-onboarding-375.png) | [학교급·관심 과목 375px](screenshots/school-onboarding-high-375.png) · [아래쪽](screenshots/school-onboarding-high-end-375.png) |
+| 문제 탐색 | [대학 3과목 375px](screenshots/before-school-bank-easy-375.png) | [초등·한국사 375px](screenshots/school-practice-elementary-375.png) · [예시 목록](screenshots/school-practice-elementary-end-375.png) |
+| 수능형과 긴 보기 | 대학 문제만 제공 | [수능 목록 430px](screenshots/school-practice-csat-430.png) · [한국사 풀이 430px](screenshots/history-csat-hard-430.png) · [제출 영역](screenshots/history-csat-hard-end-430.png) |
+| 중립 Trap·소진 | 대학 템플릿만 제공 | [학교 Trap 중립](screenshots/history-trap-neutral-375.png) · [소진 상태](screenshots/history-exhausted-375.png) |
+| 태블릿과 데스크톱 | 기존 600px 콘텐츠 폭 유지 | [한국사 768px](screenshots/history-csat-hard-768.png) · [데스크톱 목록 1440px](screenshots/school-practice-elementary-1440.png) |
+
+375·430·768·1440px에서 새로운 학교급 흐름과 기존 온보딩·홈·풀이·분석·예측·Trap·리포트를 검증했습니다.
+캡처를 직접 열어 문장 줄바꿈·보기/입력 구분·버튼 위치·600px 데스크톱 폭과 여백을 확인했습니다.
+가로 넘침은 없습니다. 네이티브 키보드·SafeArea·뒤로 가기는 실행 환경이 없어 미검증입니다.
