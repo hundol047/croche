@@ -266,12 +266,12 @@ describe('school curriculum bank',()=>{
   const attempt:Attempt={id:'school-attempt',userId:'u',problemId:p.id,userAnswer:answer,confidence:'medium',createdAt:'2026-10-08T00:00:00.000Z'};
   const analysis=await ai.analyzeMistake({problem:p,attempt,relevantMemories:[]});if(!analysis.ok)throw new Error(analysis.error);
   await recordPractice(repos,p,attempt,analysis.value);await recordPractice(repos,p,attempt,analysis.value);
-  const state=await repos.learning.get('u');expect(state.mistakes).toHaveLength(1);expect(state.dna[0]!.educationLevel).toBe('high');
+  const state=await repos.learning.get('u');expect(state.mistakes).toHaveLength(1);expect(state.mistakes[0]!.educationLevel).toBe('high');expect(state.dna).toEqual([]);
   const trap=await issueTrap(repos,ai,'u',{subject:'한국사',educationLevel:'high',targetErrorType:'concept_confusion',recentTopics:[],relevantMemories:[]});
   expect(trap.educationLevel).toBe('high');expect(trap.subject).toBe('한국사');
   const wrong=trap.options!.find(o=>o!==trap.correctAnswer)!;
   const result=await recordTrap(repos,trap,{...attempt,id:'school-trap',problemId:'school-trap-q',userAnswer:wrong});
   expect(result.predictionHit).toBe(false);expect(result.actualErrorType).toBe(undefined);
-  expect((await repos.learning.get('u')).dna[0]!.occurrenceCount).toBe(1);
+  expect((await repos.learning.get('u')).dna).toEqual([]);
  });
 });

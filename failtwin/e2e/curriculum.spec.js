@@ -4,7 +4,7 @@ const stages=[['elementary','초등학교',['수학','국어','영어','과학',
 async function fresh(page){
  await page.goto('/onboarding');await page.getByLabel('이름 입력').fill('단원 연습');await page.getByRole('button',{name:'초등학교',exact:true}).first().click();
  await visible(page.getByTestId('onboarding-start')).click();await expect(visible(page.getByText('아직 Error DNA가 없어요',{exact:true}))).toBeVisible();
- const id=await page.evaluate(()=>localStorage.getItem('ft:activeUser'));await page.goto('/practice');await visible(page.getByTestId('go-curriculum')).click();await expect(visible(page.getByText('10개 단원 · 자체 제작 20문항',{exact:true}))).toBeVisible();return id;
+ const id=await page.evaluate(()=>localStorage.getItem('ft:activeUser'));await page.goto('/practice');await visible(page.getByTestId('go-curriculum')).click();await expect(visible(page.getByText('11개 단원 · 자체 제작 22문항',{exact:true}))).toBeVisible();return id;
 }
 async function openFilters(page){const button=visible(page.getByRole('button',{name:'학습 범위 바꾸기',exact:true}));if(await button.count())await button.click();}
 async function snapshot(page,id){return page.evaluate(id=>JSON.parse(localStorage.getItem(`ft:${id}:session`)),id);}

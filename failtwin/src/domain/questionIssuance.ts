@@ -2,7 +2,7 @@ import type { Repositories, LearningState } from '@/storage/repositories';
 import type { CrocheAIService, TrapInput } from '@/services/ai/CrocheAIService';
 import type { Problem, Subject, TrapProblem, EducationLevel } from './types';
 import { practiceCatalog, practiceProblem, PRACTICE_BANK_VERSION, VARIANTS_PER_FAMILY, type Difficulty } from '@/content/practiceVariants';
-import { validateProblem } from './schemas';
+import { validateProblem, validateTrapProblem } from './schemas';
 
 export interface IssuedQuestion { kind: 'practice' | 'trap'; subject: Subject; target?: string; text: string }
 
@@ -36,6 +36,7 @@ export async function issuePractice(repos: Repositories, ai: CrocheAIService, us
   const history = (await repos.learning.get(userId)).issued ?? [];
   const res = await ai.generateProblem({ educationLevel:level, subject, difficulty, topic, avoidPrompts: history.filter((q) => q.kind === 'practice' && q.subject === subject).map((q) => q.text) });
   if (!res.ok) throw new Error(res.error);
+  if (!validateProblem(res.value).ok || res.value.subject!==subject || (res.value.educationLevel??'university')!==level || res.value.difficulty!==difficulty) throw new Error('생성된 문제가 선택한 과목·학습 단계·난이도와 일치하지 않습니다.');
   await reserve(repos, userId, { kind: 'practice', subject: res.value.subject, text: res.value.prompt });
   return res.value;
 }
@@ -44,6 +45,7 @@ export async function issueTrap(repos: Repositories, ai: CrocheAIService, userId
   const history = (await repos.learning.get(userId)).issued ?? [];
   const res = await ai.generateTrapProblem({ ...input, avoidQuestions: history.filter((q) => q.kind === 'trap').map((q) => q.text) });
   if (!res.ok) throw new Error(res.error);
+  if (!validateTrapProblem(res.value).ok || res.value.subject!==input.subject || (res.value.educationLevel??'university')!==(input.educationLevel??'university') || res.value.targetErrorType!==input.targetErrorType) throw new Error('생성된 훈련이 선택한 과목·학습 단계·실수 유형과 일치하지 않습니다.');
   await reserve(repos, userId, { kind: 'trap', subject: res.value.subject, target: res.value.targetErrorType, text: res.value.question });
   return res.value;
 }

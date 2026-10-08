@@ -136,23 +136,29 @@ function mergeEvidence(prev: string[], add?: string[]): string[] {
   return out;
 }
 
-/** Find the matching entry for an error type (across subjects/topics). */
+/** Scope by course and stage; unscoped lookups must be unambiguous. */
+export function dnaKey(entry: Pick<ErrorDnaEntry, 'subject' | 'educationLevel' | 'errorType' | 'legacyAggregate'>): string {
+  return `${entry.legacyAggregate ? 'legacy' : 'scoped'}:${entry.educationLevel ?? 'university'}:${entry.subject}:${entry.errorType}`;
+}
 export function findEntry(
   entries: ErrorDnaEntry[],
   errorType: ErrorType,
+  scope?: {subject: string; educationLevel?: EducationLevel},
 ): ErrorDnaEntry | undefined {
-  return entries.find((e) => e.errorType === errorType);
+  const matches = entries.filter(e => e.errorType === errorType && !e.legacyAggregate && (!scope || (e.subject === scope.subject && (e.educationLevel ?? 'university') === (scope.educationLevel ?? 'university'))));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /** The strongest (highest-score) error type — the Trap Mode target. */
 export function strongestErrorType(entries: ErrorDnaEntry[]): ErrorDnaEntry | undefined {
-  if (entries.length === 0) return undefined;
-  return [...entries].sort((a, b) => b.score - a.score)[0];
+  const scoped = entries.filter(e => !e.legacyAggregate);
+  if (scoped.length === 0) return undefined;
+  return [...scoped].sort((a, b) => b.score - a.score)[0];
 }
 
-/** Upsert an entry into a list by (errorType) key, returning a new array. */
+/** Upsert by course/stage/error scope, preserving historical aggregates. */
 export function upsertEntry(entries: ErrorDnaEntry[], next: ErrorDnaEntry): ErrorDnaEntry[] {
-  const idx = entries.findIndex((e) => e.errorType === next.errorType);
+  const idx = entries.findIndex((e) => dnaKey(e) === dnaKey(next));
   if (idx === -1) return [...entries, next];
   const copy = [...entries];
   copy[idx] = next;

@@ -35,6 +35,7 @@ export const TOOL_INPUT_SCHEMAS = {
   updateErrorDNA: z.object({
     userId,
     subject: z.string().min(1).max(80),
+    educationLevel: z.enum(['elementary','middle','high','university','csat']).default('university'),
     topic: z.string().min(1).max(120),
     errorType,
     severity: z.number().int().min(1).max(5),
@@ -103,7 +104,7 @@ export class ToolRunner {
         case 'getLearningProgress':
           return Ok(await this.progress((input as { userId: string }).userId));
         case 'saveMistakeAnalysis':
-          return Ok({ saved: true });
+          return Err('검증된 문제·제출·분석을 함께 저장해야 합니다. 앱의 답 제출 경계를 이용해주세요.');
         default:
           return Err(`unknown tool: ${name as string}`);
       }
@@ -113,29 +114,25 @@ export class ToolRunner {
   }
 
   private async updateDna(i: z.infer<typeof TOOL_INPUT_SCHEMAS.updateErrorDNA>) {
-    const entries = await this.repos.dna.get(i.userId);
-    if (i.outcome === 'mistake') {
-      const existing = findEntry(entries, i.errorType as ErrorType);
-      const next = applyMistake(existing, {
+    let result: ReturnType<typeof applyMistake> | null = null;
+    await this.repos.learning.update(i.userId, state => {
+      const existing = findEntry(state.dna, i.errorType as ErrorType, i);
+      const next = i.outcome === 'mistake' ? applyMistake(existing, {
         userId: i.userId,
         subject: i.subject,
+        educationLevel: i.educationLevel,
         topic: i.topic,
         errorType: i.errorType as ErrorType,
         severity: i.severity,
-      });
-      const updated = upsertEntry(entries, next);
-      await this.repos.dna.save(i.userId, updated);
-      return next;
-    }
-    const existing = findEntry(entries, i.errorType as ErrorType);
-    if (!existing) return null;
-    const next = applyCorrection(existing, { confidence: i.confidence as Confidence });
-    await this.repos.dna.save(i.userId, upsertEntry(entries, next));
-    return next;
+      }) : existing ? applyCorrection(existing, {confidence:i.confidence as Confidence}) : null;
+      result = next;
+      return next ? {...state,dna:upsertEntry(state.dna,next)} : state;
+    });
+    return result;
   }
 
   private async generateTrap(i: z.infer<typeof TOOL_INPUT_SCHEMAS.generateTrapChallenge>) {
-    const entries = await this.repos.dna.get(i.userId);
+    const entries = (await this.repos.dna.get(i.userId)).filter(e=>!e.legacyAggregate && e.subject===i.subject && (e.educationLevel??'university')==='university');
     const strongest = strongestErrorType(entries);
     const target = (strongest?.errorType ?? 'verification_omission') as ErrorType;
     const recentTopics = entries.slice(0, 3).map((e) => e.topic);

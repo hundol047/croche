@@ -20,9 +20,10 @@ export function buildReport(
   weeks = 4,
   at: string = nowIso(),
 ): LearningReport {
+  entries = entries.filter(e=>!e.legacyAggregate);
   const recurrenceTrend = weeklyRecurrence([
     ...mistakes,
-    ...trapResults.map((t) => ({ isCorrect: t.solvedCorrectly, errorType: t.actualErrorType, createdAt: t.createdAt })),
+    ...trapResults.map((t) => ({ isCorrect: t.solvedCorrectly, errorType: t.actualErrorType, subject: t.subject, educationLevel: t.educationLevel, createdAt: t.createdAt })),
   ], weeks, at);
   const predictionHitRate = hitRate(trapResults);
   const correctedCount = countCorrected(mistakes, trapResults);
@@ -43,7 +44,7 @@ export function buildReport(
 
 /** Recurrence rate per week = (repeat mistakes) / (total mistakes) that week. */
 export function weeklyRecurrence(
-  mistakes: Pick<MistakeRecord, 'isCorrect' | 'errorType' | 'createdAt'>[],
+  mistakes: (Pick<MistakeRecord, 'isCorrect' | 'errorType' | 'createdAt'> & Partial<Pick<MistakeRecord, 'subject' | 'educationLevel'>>)[],
   weeks: number,
   at: string = nowIso(),
 ): WeeklyRecurrence[] {
@@ -62,8 +63,9 @@ export function weeklyRecurrence(
     if (inWeek.length === 0) continue;
     let repeats = 0;
     for (const m of inWeek) {
-      if (m.errorType && seenTypes.has(m.errorType)) repeats += 1;
-      if (m.errorType) seenTypes.add(m.errorType);
+      const key = `${m.educationLevel ?? 'university'}:${m.subject ?? 'legacy'}:${m.errorType}`;
+      if (m.errorType && seenTypes.has(key)) repeats += 1;
+      if (m.errorType) seenTypes.add(key);
     }
     const rate = inWeek.length === 0 ? 0 : repeats / inWeek.length;
     out.push({ weekLabel: `W${weeks - w}`, recurrenceRate: rate });
@@ -101,6 +103,7 @@ function mostDangerous(entries: ErrorDnaEntry[]): { errorType: ErrorType; score:
  * never as a judgement of the person's ability (R10 safety).
  */
 export function buildInsight(entries: ErrorDnaEntry[], trapResults: TrapResult[]): string {
+  entries = entries.filter(e=>!e.legacyAggregate);
   if (entries.length === 0) {
     return '풀이 기록이 쌓이면 반복되는 실수 패턴과 다음 연습을 확인할 수 있어요.';
   }
@@ -131,6 +134,7 @@ export function buildInsight(entries: ErrorDnaEntry[], trapResults: TrapResult[]
 
 /** Snapshot used to detect improvement after a trap/correction cycle. */
 export function totalRisk(entries: ErrorDnaEntry[]): number {
+  entries = entries.filter(e=>!e.legacyAggregate);
   if (entries.length === 0) return 0;
   const sum = entries.reduce((acc, e) => acc + e.score, 0);
   return round1(clamp(sum / entries.length, 0, 100));

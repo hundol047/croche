@@ -35,14 +35,13 @@ export function useErrorDNA() {
   );
 
   const recordCorrection = useCallback(
-    async (errorType: ErrorType, confidence: Confidence) => {
+    async (errorType: ErrorType, confidence: Confidence, scope: Pick<Problem, 'subject' | 'educationLevel'>) => {
       if (!profile) return;
       const userId = profile.userId;
-      const entries = await repos.dna.get(userId);
-      const existing = findEntry(entries, errorType);
-      if (!existing) return;
-      const next = applyCorrection(existing, { confidence });
-      await repos.dna.save(userId, upsertEntry(entries, next));
+      await repos.learning.update(userId,state=>{
+        const existing = findEntry(state.dna,errorType,scope);
+        return existing ? {...state,dna:upsertEntry(state.dna,applyCorrection(existing,{confidence}))} : state;
+      });
       await refresh();
     },
     [profile, repos, refresh],
@@ -51,7 +50,7 @@ export function useErrorDNA() {
   const strongest = strongestErrorType(dna);
 
   const memoryContextFor = useCallback(
-    (problem: Pick<Problem, 'subject' | 'topic'>) => buildMemoryContext(dna, problem),
+    (problem: Pick<Problem, 'subject' | 'topic' | 'educationLevel'>) => buildMemoryContext(dna, problem),
     [dna],
   );
 

@@ -17,6 +17,7 @@ import { colors, radius, spacing, typography } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
 import { useErrorDNA } from '@/state/useErrorDNA';
 import { buildMemoryContext } from '@/domain/memorySelect';
+import { strongestErrorType } from '@/domain/errorDnaEngine';
 import { errorTypeLabel } from '@/domain/errorTypes';
 import { recordTrap } from '@/domain/learningEvents';
 import { assessAnswer, UngradableAnswerError } from '@/domain/answerAssessment';
@@ -33,16 +34,17 @@ export default function Trap() {
   const { ai, dna, profile, repos, refresh, traps: trapHistory } = useApp();
   const { strongest } = useErrorDNA();
 
-  const { target: requestedTarget } = useLocalSearchParams<{ target?: string }>();
-  const targetEntry = dna.find((e) => e.errorType === requestedTarget) ?? strongest;
+  const { target: requestedTarget, subject: requestedSubject, educationLevel: requestedLevel } = useLocalSearchParams<{ target?: string; subject?: string; educationLevel?: string }>();
+  const targetEntry = strongestErrorType(dna.filter(e=>e.errorType===requestedTarget && (!requestedSubject||e.subject===requestedSubject) && (!requestedLevel||(e.educationLevel??'university')===requestedLevel))) ?? strongest;
   const target: ErrorType = targetEntry?.errorType ?? 'verification_omission';
   const savedTrap = sessionStore.get('currentTrap');
-  const canResume = savedTrap && (!requestedTarget || savedTrap.targetErrorType === requestedTarget);
+  const canResume = savedTrap && (!requestedTarget || savedTrap.targetErrorType === requestedTarget) && (!requestedSubject||savedTrap.subject===requestedSubject) && (!requestedLevel||(savedTrap.educationLevel??'university')===requestedLevel);
   const [trap, setTrap] = useState<TrapProblem | null>(canResume ? savedTrap : null);
   const [phase, setPhase] = useState<Phase>(canResume ? 'solving' : 'intro');
-  const [answer, setAnswer] = useState('');
-  const [reasoning, setReasoning] = useState('');
-  const [confidence, setConfidence] = useState<Confidence>('medium');
+  const restoredDraft = canResume && sessionStore.get('trapDraft')?.problemId === sessionStore.get('trapId') ? sessionStore.get('trapDraft') : undefined;
+  const [answer, setAnswer] = useState(restoredDraft?.answer ?? '');
+  const [reasoning, setReasoning] = useState(restoredDraft?.reasoning ?? '');
+  const [confidence, setConfidence] = useState<Confidence>(restoredDraft?.confidence ?? 'medium');
   const [result, setResult] = useState<StoredTrapResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -50,6 +52,19 @@ export default function Trap() {
   const [exhaustionMessage,setExhaustionMessage]=useState('');
   const [exhausted, setExhausted] = useState(false);
   const submitting = useRef(false);
+  const [draftStatus, setDraftStatus] = useState<'idle'|'saving'|'saved'|'error'>(restoredDraft ? 'saved' : 'idle');
+  const draftValues = useRef({answer, reasoning, confidence});
+  const draftTurn = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const persistDraft = (value: Partial<typeof draftValues.current>) => {
+    draftValues.current = {...draftValues.current, ...value};
+    const problemId = sessionStore.get('trapId'); if (!problemId) return;
+    const turn = ++draftTurn.current; setDraftStatus('saving');
+    void sessionStore.saveTrapDraft({...draftValues.current, problemId}, savedAttempt?.id).then(() => {
+      if (alive.current && turn === draftTurn.current) setDraftStatus('saved');
+    }).catch(() => { if (alive.current && turn === draftTurn.current) setDraftStatus('error'); });
+  };
   const [savedAttempt] = useState(canResume ? sessionStore.get('trapAttempt') : undefined);
 
   useEffect(() => {
@@ -82,15 +97,15 @@ export default function Trap() {
       const next = await issueTrap(repos, ai, profile.userId, {
         targetErrorType: target, subject, educationLevel: targetEntry ? targetEntry.educationLevel??'university' : profile.educationLevel,
         recentTopics: [...dna.slice(0, 3).map((e) => e.topic), ...trapHistory.map((t) => t.topic ?? ''), ...(trap ? [trap.topic] : [])],
-        relevantMemories: buildMemoryContext(dna, { subject, topic: targetEntry?.topic ?? '' }),
+        relevantMemories: buildMemoryContext(dna, { subject, educationLevel: targetEntry ? targetEntry.educationLevel??'university' : profile.educationLevel, topic: targetEntry?.topic ?? '' }),
       });
       await sessionStore.startTrap(next, uid('trapq'));
       setTrap(next);
       setResult(null);
       setAnswer('');
-      setReasoning('');
+      setReasoning(''); setConfidence('medium'); draftValues.current = {answer:'',reasoning:'',confidence:'medium'}; ++draftTurn.current; setDraftStatus('idle');
       setPhase('solving');
-    } catch (e) { setExhausted(e instanceof Error && e.message.startsWith('EXHAUSTED:'));setExhaustionMessage(e instanceof Error?e.message.replace(/^EXHAUSTED: /,''):''); setPhase('error'); }
+    } catch (e) { setExhausted(e instanceof Error && /^(EXHAUSTED|UNAVAILABLE):/.test(e.message));setExhaustionMessage(e instanceof Error?e.message.replace(/^(EXHAUSTED|UNAVAILABLE): /,''):''); setPhase('error'); }
   };
 
   const submit = async () => {
@@ -143,17 +158,19 @@ export default function Trap() {
           {trap.subject === '한국사' ? <Caption>한국사 학습용 요약 · 전문가 감수 전</Caption> : null}
           <Text style={styles.question}>{trap.question}</Text>
           {trap.answerType === 'mcq' && trap.options ? <View style={styles.options}>
-            {trap.options.map((o) => <Pressable key={o} accessibilityRole="button" accessibilityLabel={`보기 ${o}`} aria-pressed={answer===o} accessibilityState={{selected:answer===o}} onPress={()=>{setAnswer(o);setGuidance('');}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>)}
+            {trap.options.map((o) => <Pressable key={o} accessibilityRole="button" accessibilityLabel={`보기 ${o}`} aria-pressed={answer===o} accessibilityState={{selected:answer===o}} disabled={busy} onPress={()=>{setAnswer(o);setGuidance('');persistDraft({answer:o});}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>)}
           </View> : null}
         </Card>
         <Caption>내 답</Caption>
+        {draftStatus !== 'idle' ? <Caption>{draftStatus === 'saved' ? '입력 저장됨 · 제출 전에는 학습 기록에 반영되지 않습니다.' : draftStatus === 'saving' ? '입력 저장 중' : '입력 저장 실패 · 이 화면에는 입력이 남아 있습니다.'}</Caption> : null}
+        {draftStatus === 'error' ? <Button label="입력 저장 다시 시도" variant="secondary" onPress={() => persistDraft({})} /> : null}
         <TextInput style={styles.input} placeholder="답을 입력" placeholderTextColor={colors.textFaint}
-          value={answer} onChangeText={(text) => { setAnswer(text); setGuidance(''); }} accessibilityLabel="Trap 답 입력" />
+          value={answer} maxLength={256} editable={!busy} onChangeText={(text) => { setAnswer(text); setGuidance(''); persistDraft({answer:text}); }} accessibilityLabel="Trap 답 입력" />
         {guidance ? <View accessibilityLiveRegion="polite" style={styles.spacer}><Text style={styles.pattern}>판정 불가</Text><Body>{guidance}</Body><Caption>HIT와 Error DNA에는 반영하지 않았습니다.</Caption></View> : null}
         <Caption style={styles.spacer}>풀이 과정 (선택)</Caption>
         <TextInput style={[styles.input, styles.multiline]} placeholder="어떤 조건을 확인했는지 함께 적어주세요."
-          placeholderTextColor={colors.textFaint} value={reasoning} onChangeText={setReasoning} multiline accessibilityLabel="Trap 풀이 과정 입력" />
-        <View style={styles.spacer}><ConfidenceSelector value={confidence} onChange={setConfidence} /></View>
+          placeholderTextColor={colors.textFaint} value={reasoning} maxLength={4000} editable={!busy} onChangeText={text=>{setReasoning(text);persistDraft({reasoning:text});}} multiline accessibilityLabel="Trap 풀이 과정 입력" />
+        <View style={styles.spacer}><ConfidenceSelector disabled={busy} value={confidence} onChange={c=>{setConfidence(c);persistDraft({confidence:c});}} /></View>
         <View style={styles.spacer}><Button label="제출" variant="trap" onPress={submit} loading={busy}
           disabled={answer.trim().length === 0} testID="trap-submit" /></View>
       </> : null}

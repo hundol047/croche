@@ -94,6 +94,9 @@ test('history variation, durable exhaustion, failed reservation and neutral scho
  await visible(page.getByRole('button',{name:`보기 ${wrong}`,exact:true})).click();
  await visible(page.getByTestId('submit-answer')).click();
  await expect(visible(page.getByText('오답 · 함께 확인해봐요',{exact:true}))).toBeVisible();
+ expect((await state(page,id)).dna).toEqual([]);
+ // An unsupported wrong answer establishes no weakness. Seed a clearly synthetic, scoped fixture to verify school Trap neutrality separately.
+ await page.evaluate(id=>{const key=`ft:${id}:learning`,s=JSON.parse(localStorage.getItem(key)),at=new Date().toISOString();s.dnaScopeVersion=2;s.dna=[{userId:id,educationLevel:'high',subject:'한국사',topic:'연표',errorType:'concept_confusion',errorDescription:'브라우저 검증용 합성 기록',evidence:[],occurrenceCount:1,recentOccurrence:at,severity:3,confidence:0.7,score:17,improvementScore:0,lastUpdated:at}];localStorage.setItem(key,JSON.stringify(s));},id);
  await page.goto('/trap');
  await visible(page.getByTestId('trap-start')).click();
  await page.getByLabel('Trap 답 입력',{exact:true}).waitFor();

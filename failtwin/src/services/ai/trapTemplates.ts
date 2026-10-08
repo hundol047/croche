@@ -153,6 +153,28 @@ export const TRAP_TEMPLATES: Record<ErrorType, TrapTemplate[]> = {
   ],
   sign_error: [
     {
+      subject: '일반물리',
+      topic: '방향을 포함한 변위',
+      question: '오른쪽을 양의 방향으로 정했습니다. 물체가 왼쪽으로 2 m/s의 일정한 속도로 3초 동안 움직였습니다. 이때 변위는 몇 m인가요? 부호를 포함해 숫자로 쓰세요.',
+      answerType: 'numeric',
+      correctAnswer: '-6',
+      targetedWrongAnswers: ['6'],
+      explanation: '왼쪽 속도는 −2 m/s이므로 변위=(−2)×3=−6 m입니다. 이동 거리 6 m와 부호 있는 변위를 구분합니다.',
+      trapExplanation: '이동 방향을 크기만으로 바꾸면 부호를 놓칩니다. 좌표의 양의 방향을 먼저 확인하세요.',
+      difficulty: 'easy',
+    },
+    {
+      subject: '일반물리',
+      topic: '힘의 방향과 일',
+      question: '오른쪽을 양의 방향으로 정했습니다. 물체가 오른쪽으로 4 m 이동하는 동안 왼쪽으로 5 N의 일정한 힘이 작용했습니다. 이 힘이 한 일은 몇 J인가요? 부호를 포함해 숫자로 쓰세요.',
+      answerType: 'numeric',
+      correctAnswer: '-20',
+      targetedWrongAnswers: ['20'],
+      explanation: '힘과 변위가 반대 방향이므로 W=5×4×cos180°=−20 J입니다.',
+      trapExplanation: '힘과 이동 거리의 크기만 곱하면 일의 부호를 놓칩니다. 힘과 변위의 상대 방향을 확인하세요.',
+      difficulty: 'medium',
+    },
+    {
       subject: '공업수학',
       topic: '부정적분',
       question: '∫ (-2x) dx 를 구하시오. (C 포함, 예: -x^2 + C)',

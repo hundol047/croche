@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { ActionRow } from '@/components/ActionRow';
 import { Screen } from '@/components/Screen';
 import { EmptyState } from '@/components/EmptyState';
 import { Card } from '@/components/Card';
@@ -71,6 +72,7 @@ export default function Report() {
         </View>
       </Section>
 
+      <ActionRow label="오답·복습 기록 보기" hint="과목·단원별 답과 해설, 다시 풀기" onPress={() => router.push('/review')} />
       <InsightCard text={report.insight} />
     </Screen>
   );

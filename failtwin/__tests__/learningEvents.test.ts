@@ -46,10 +46,10 @@ describe('durable learning events', () => {
       errorDescription: '', evidence: [], score: 40, occurrenceCount: 2, severity: 2, confidence: 0.7,
       improvementScore: 0, recentOccurrence: attempt.createdAt, lastUpdated: attempt.createdAt }]));
     const record = await recordPractice(repos, problem, attempt, await analysis());
-    expect(record.beforeScore).toBe(40);
-    expect(record.afterScore).toBe(61);
+    expect(record.beforeScore).toBe(0);
+    expect(record.afterScore).toBe(17);
     const reloaded = makeRepositories(kv);
-    expect((await reloaded.dna.get('u1'))[0]!.score).toBe(61);
+    const entries = await reloaded.dna.get('u1');expect(entries[0]!.score).toBe(40);expect(entries[0]!.legacyAggregate).toBe(true);expect(entries[1]!.score).toBe(17);
     expect(await reloaded.mistakes.get('u1')).toHaveLength(1);
   });
   it('concurrent rerenders and reloads apply one mistake and one score delta', async () => {

@@ -63,3 +63,36 @@ jobs:
         run: npm i -g typescript@5.3.3
       - name: Run logic test suite
         run: npm run test:logic
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPO_NO_TELEMETRY: 1
+      FAILTWIN_STATIC_WEB: '1'
+      EXPO_PUBLIC_CROCHE_MODE: mock
+    defaults:
+      run:
+        working-directory: failtwin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: failtwin/package-lock.json
+      - run: npm ci
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Production web export
+        run: npm run build:web -- --max-workers 2
+      - name: Browser regression at four widths
+        run: npm run test:web -- --workers 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: failtwin-browser-results
+          path: |
+            failtwin/playwright-report
+            failtwin/test-results
+          retention-days: 7

@@ -16,9 +16,17 @@ export class UngradableAnswerError extends Error {
 
 function numeric(s: string): number | null {
   const text = s.trim();
+  const fraction = text.match(new RegExp(`^(${DECIMAL})\\s*/\\s*(${DECIMAL})$`, 'i'));
+  if (fraction) {
+    const numerator = numeric(fraction[1]!), denominator = numeric(fraction[2]!);
+    if (numerator === null || denominator === null || denominator === 0) return null;
+    const value = numerator / denominator;
+    return Number.isFinite(value) && (value !== 0 || numerator === 0) ? value : null;
+  }
   if (!NUMBER.test(text)) return null;
   if (text.split(/[eE]/)[0]!.replace(/[^0-9]/g, '').replace(/^0+/, '').length > 15) return null;
   const n = Number(text);
+  if (n === 0 && /[1-9]/.test(text.split(/[eE]/)[0]!)) return null;
   return Number.isFinite(n) ? n : null;
 }
 
@@ -31,7 +39,7 @@ function interval(s: string): string | null {
 }
 
 /** A bounded grammar for c*e^(k*x), NOT a general symbolic calculator. */
-function exponential(s: string): { coefficient: number; exponent: number } | null {
+export function exponential(s: string): { coefficient: number; exponent: number } | null {
   // Removing whitespace must never join two numeric tokens ("3 0" → "30").
   if (/\d\s+\d/.test(s)) return null;
   const t = s.trim().replace(/\s+/g, '').replace(/−/g, '-');
@@ -52,8 +60,8 @@ export function assessAnswer(question: Question, answer: string): AnswerAssessme
   if (!answer.trim() || answer.length > 256) return unknown('답을 256자 이내로 입력해주세요.');
   if (question.answerType === 'numeric') {
     const a = numeric(answer); const c = numeric(question.correctAnswer);
-    if (a === null || c === null) return unknown('단위를 제외한 숫자 하나를 입력해주세요. 예: 20 또는 2e1');
-    return judged(Math.abs(a - c) < 1e-6);
+    if (a === null || c === null) return unknown('단위를 제외한 숫자 또는 분수를 입력해주세요. 예: 20, 2e1, 1/2 (분모는 0이 될 수 없습니다)');
+    return judged(a === c || Math.abs(a - c) < Math.min(1e-6, Math.abs(c) * 1e-6));
   }
   if (question.answerType === 'mcq') {
     if (normalize(answer) === normalize(question.correctAnswer)) return judged(true);

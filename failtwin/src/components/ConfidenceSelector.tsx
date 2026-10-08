@@ -6,6 +6,7 @@ import { spacing } from '@/constants/theme';
 import type { Confidence } from '@/domain/types';
 
 interface ConfidenceSelectorProps {
+  disabled?: boolean;
   value: Confidence;
   onChange: (c: Confidence) => void;
 }
@@ -16,7 +17,7 @@ const OPTIONS: { key: Confidence; label: string }[] = [
   { key: 'high', label: '매우 확신' },
 ];
 
-export function ConfidenceSelector({ value, onChange }: ConfidenceSelectorProps) {
+export function ConfidenceSelector({ value, onChange, disabled }: ConfidenceSelectorProps) {
   return (
     <View>
       <Caption>확신도</Caption>
@@ -24,6 +25,7 @@ export function ConfidenceSelector({ value, onChange }: ConfidenceSelectorProps)
         {OPTIONS.map((o) => (
           <Pill
             key={o.key}
+            disabled={disabled}
             label={o.label}
             selected={value === o.key}
             onPress={() => onChange(o.key)}

@@ -53,15 +53,16 @@ export default function Home() {
       <Title style={styles.title}>오늘의 학습 상태</Title>
 
       <View style={styles.dnaSection}>
-        <SectionTitle right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : null}>Error DNA</SectionTitle>
+        <SectionTitle right={dna.some(e=>!e.legacyAggregate) ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : null}>Error DNA</SectionTitle>
         {hasData ? <>
           <Caption>{profile?.isDemo ? '예시 기록' : '풀이 기록'} · 위험 점수 0–100</Caption>
           <View style={styles.dnaBlock}><ErrorDnaBars entries={dna} /></View>
-        </> : <EmptyState title="아직 Error DNA가 없어요" description="문제를 풀면 나만의 실수 패턴이 여기에 기록됩니다." />}
+        </> : <EmptyState title="아직 Error DNA가 없어요" description="근거가 확인된 실수 패턴만 기록합니다. 모든 답안은 풀이 복습에서 확인할 수 있습니다." />}
       </View>
 
       <Button label={hasData ? '문제 풀기' : '첫 문제 풀기'} onPress={() => router.push('/practice')} testID="go-practice" />
 
+      <ActionRow label="오답·복습 기록" onPress={() => router.push('/review')} quiet />
       <View style={styles.next}>
         {prediction ? <>
           <View style={styles.patternRow}><TargetIcon size={18} /><Text style={styles.patternCaption}>다음에 확인할 패턴</Text></View>

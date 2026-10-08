@@ -360,7 +360,8 @@ test('30,000 per subject: every difficulty grades correctly and topic choice per
   expect(state.mistakes).toHaveLength(11);
   expect(new Set(state.mistakes.map(m => m.problemId)).size).toBe(11);
   expect(state.mistakes.every(m => m.isCorrect)).toBe(true);
-  expect(state.dna.find(d => d.errorType === 'condition_omission').score).toBe(74);
+  // A correct Python answer must not lower the university math condition score.
+  expect(state.dna.find(d => d.subject === '공업수학' && d.errorType === 'condition_omission').score).toBe(83);
 });
 
 test('failed bank reservation retries without consuming a variant or accumulating DNA', async ({ page }) => {

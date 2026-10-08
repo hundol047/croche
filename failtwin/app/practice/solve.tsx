@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -23,12 +23,28 @@ export default function Solve() {
   const problem = sessionStore.get('currentProblem');
 
   const saved = sessionStore.get('currentAttempt');
-  const [answer, setAnswer] = useState(saved?.userAnswer ?? '');
+  const draft = sessionStore.get('practiceDraft');
+  const restored = draft?.problemId === problem?.id ? draft : undefined;
+  const [answer, setAnswer] = useState(restored?.answer ?? saved?.userAnswer ?? '');
   const [guidance, setGuidance] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [reasoning, setReasoning] = useState(saved?.userReasoning ?? '');
-  const [confidence, setConfidence] = useState<Confidence>(saved?.confidence ?? 'medium');
+  const [reasoning, setReasoning] = useState(restored?.reasoning ?? saved?.userReasoning ?? '');
+  const [confidence, setConfidence] = useState<Confidence>(restored?.confidence ?? saved?.confidence ?? 'medium');
+
+  const [draftStatus, setDraftStatus] = useState<'idle'|'saving'|'saved'|'error'>(restored ? 'saved' : 'idle');
+  const draftValues = useRef({answer, reasoning, confidence});
+  const sequence = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const persistDraft = (values: Partial<typeof draftValues.current>) => {
+    draftValues.current = {...draftValues.current, ...values};
+    if (!problem) return;
+    const turn = ++sequence.current; setDraftStatus('saving');
+    void sessionStore.savePracticeDraft({...draftValues.current, problemId: problem.id}, saved?.id).then(() => {
+      if (alive.current && turn === sequence.current) setDraftStatus('saved');
+    }).catch(() => { if (alive.current && turn === sequence.current) setDraftStatus('error'); });
+  };
 
   if (!problem) {
     return (
@@ -65,7 +81,7 @@ export default function Solve() {
   return (
     <Screen>
       <View style={styles.topRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel={problem.curriculumUnitId ? '단원 목록으로 돌아가기' : '문제 목록으로 돌아가기'} onPress={() => router.navigate(problem.curriculumUnitId ? '/curriculum' : '/practice')} hitSlop={12}>
+        <Pressable accessibilityRole="button" accessibilityLabel={sessionStore.get('practiceReturnTo') === 'review' ? '복습 목록으로 돌아가기' : problem.curriculumUnitId ? '단원 목록으로 돌아가기' : '문제 목록으로 돌아가기'} onPress={() => router.navigate(sessionStore.get('practiceReturnTo') === 'review' ? '/review' : problem.curriculumUnitId ? '/curriculum' : '/practice')} hitSlop={12}>
           <View style={styles.back}><ArrowIcon direction="left" /></View>
         </Pressable>
         <Caption style={styles.context}>{educationLabel[problem.educationLevel??'university']} · {problem.subject} · {problem.topic}</Caption>
@@ -80,7 +96,7 @@ export default function Solve() {
         {problem.answerType === 'mcq' && problem.options ? (
           <View style={styles.options}>
             {problem.options.map((o) => (
-              <Pressable key={o} accessibilityRole="button" aria-pressed={answer===o} accessibilityState={{selected:answer===o}} accessibilityLabel={`보기 ${o}`} onPress={()=>{setAnswer(o);setGuidance('');}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>
+              <Pressable key={o} accessibilityRole="button" aria-pressed={answer===o} accessibilityState={{selected:answer===o}} accessibilityLabel={`보기 ${o}`} disabled={busy} onPress={()=>{setAnswer(o);setGuidance('');persistDraft({answer:o});}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>
             ))}
             <Caption style={styles.mcqHint}>보기를 선택하거나 직접 입력하세요. 복수 정답은 쉼표로 입력하세요.</Caption>
           </View>
@@ -88,12 +104,14 @@ export default function Solve() {
       </View>
 
       <Caption>내 답</Caption>
+      {draftStatus !== 'idle' ? <Caption>{draftStatus === 'saved' ? '입력 저장됨 · 제출 전에는 학습 기록에 반영되지 않습니다.' : draftStatus === 'saving' ? '입력 저장 중' : '입력 저장 실패 · 이 화면에는 입력이 남아 있습니다.'}</Caption> : null}
+      {draftStatus === 'error' ? <Button label="입력 저장 다시 시도" variant="secondary" onPress={() => persistDraft({})} /> : null}
       <TextInput
         style={styles.input}
-        placeholder={problem.answerType === 'numeric' ? '숫자를 입력' : '답을 입력'}
+        placeholder={problem.answerType === 'numeric' ? '숫자 또는 분수 입력 (예: 1/2)' : '답을 입력'}
         placeholderTextColor={colors.textFaint}
         value={answer}
-        onChangeText={(text) => { setAnswer(text); setGuidance(''); }}
+        maxLength={256} editable={!busy} onChangeText={(text) => { setAnswer(text); setGuidance(''); persistDraft({answer:text}); }}
         keyboardType={problem.answerType === 'numeric' ? 'numbers-and-punctuation' : 'default'}
         accessibilityLabel="답 입력"
       />
@@ -108,13 +126,13 @@ export default function Solve() {
         placeholder="어떤 조건을 확인했는지 함께 적어주세요."
         placeholderTextColor={colors.textFaint}
         value={reasoning}
-        onChangeText={setReasoning}
+        maxLength={4000} editable={!busy} onChangeText={text => { setReasoning(text); persistDraft({reasoning:text}); }}
         multiline
         accessibilityLabel="풀이 과정 입력"
       />
 
       <View style={styles.spacer}>
-        <ConfidenceSelector value={confidence} onChange={setConfidence} />
+        <ConfidenceSelector disabled={busy} value={confidence} onChange={c => { setConfidence(c); persistDraft({confidence:c}); }} />
       </View>
 
       {error ? <ErrorState message="답을 저장하지 못했어요. 다시 시도해주세요." onRetry={submit} /> : null}

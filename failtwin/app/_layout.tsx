@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from '@/state/AppContext';
+import { RecordRecovery } from '@/components/RecordRecovery';
 import { Screen } from '@/components/Screen';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
@@ -21,13 +22,13 @@ export default function RootLayout() {
 }
 
 function AppNavigation() {
-  const { ready, profile, bootstrapError, retryBootstrap } = useApp();
+  const { ready, profile, bootstrapError, recordError, retryBootstrap } = useApp();
   const router = useRouter();
   const segments = useSegments();
   useEffect(() => {
     if (ready && !profile && segments[0] !== 'onboarding') router.replace('/onboarding');
   }, [ready, profile, router, segments]);
-  if (!ready) return <Screen>{bootstrapError
+  if (!ready) return <Screen>{recordError ? <RecordRecovery error={recordError} onRecovered={retryBootstrap} /> : bootstrapError
     ? <ErrorState message="학습 기록을 불러오지 못했어요. 브라우저의 저장 공간을 확인하고 다시 시도해주세요." onRetry={retryBootstrap} />
     : <LoadingState message="학습 기록을 불러오고 있어요" />}</Screen>;
   return (

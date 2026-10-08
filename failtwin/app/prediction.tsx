@@ -9,13 +9,13 @@ import { ActionRow } from '@/components/ActionRow';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
 import { PredictionCard } from '@/components/PredictionCard';
-import { Title, Body } from '@/components/typography';
+import { Title, Body, Caption } from '@/components/typography';
 import { spacing } from '@/constants/theme';
 import { useApp } from '@/state/AppContext';
 import { useErrorDNA } from '@/state/useErrorDNA';
 import { predictFromDna } from '@/domain/prediction';
 import { buildMemoryContext } from '@/domain/memorySelect';
-import { DEMO_SUBJECTS } from '@/content/problems';
+import { SUBJECTS, educationLabel } from '@/domain/curriculum';
 import type { Prediction } from '@/domain/types';
 
 type Phase = 'loading' | 'error' | 'done' | 'empty';
@@ -29,15 +29,16 @@ export default function PredictionScreen() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
 
   const run = useCallback(async () => {
-    if (dna.length === 0) {
+    if (!strongest) {
       setPhase('empty');
       return;
     }
     setPhase('loading');
-    const subject = DEMO_SUBJECTS.find((s) => s === strongest?.subject);
+    const subject = SUBJECTS.find((s) => s === strongest.subject);
     const topic = strongest?.topic;
     const memories = buildMemoryContext(dna, {
       subject: subject ?? '공업수학',
+      educationLevel: strongest.educationLevel,
       topic: topic ?? '',
     });
     try {
@@ -45,7 +46,7 @@ export default function PredictionScreen() {
     if (!res.ok) {
       // Fall back to the deterministic baseline prediction so the user still
       // sees a useful result instead of only an error.
-      const fallback = predictFromDna(dna);
+      const fallback = predictFromDna(dna, {subject: strongest.subject, educationLevel: strongest.educationLevel??'university'});
       if (fallback) {
         setPrediction(fallback);
         setPhase('done');
@@ -57,7 +58,7 @@ export default function PredictionScreen() {
     setPrediction(res.value);
     setPhase('done');
     } catch {
-      const fallback = predictFromDna(dna);
+      const fallback = predictFromDna(dna, {subject: strongest.subject, educationLevel: strongest.educationLevel??'university'});
       setPrediction(fallback);
       setPhase(fallback ? 'done' : 'error');
     }
@@ -78,9 +79,10 @@ export default function PredictionScreen() {
         <Button label="첫 문제 풀기" onPress={() => router.push('/practice')} />
       </Card> : null}
       {phase === 'done' && prediction ? <>
+        {strongest ? <Caption>{strongest.subject} · {educationLabel[strongest.educationLevel??'university']}</Caption> : null}
         <PredictionCard prediction={prediction} />
         <Button label="이 유형 훈련하기" variant="trap"
-          onPress={() => router.push({ pathname: '/trap', params: { target: prediction.predictedErrorType } })} />
+          onPress={() => router.push({ pathname: '/trap', params: { target: prediction.predictedErrorType, subject: strongest?.subject, educationLevel: strongest?.educationLevel??'university' } })} />
       </> : null}
       <View style={styles.gap} />
       <ActionRow label="홈으로" onPress={() => goToMain(router)} quiet />

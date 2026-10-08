@@ -7,7 +7,7 @@ import React, {
   useCallback,
   type Context,
 } from 'react';
-import { makeRepositories, type Repositories } from '@/storage/repositories';
+import { StorageCorruptionError, makeRepositories, type Repositories } from '@/storage/repositories';
 import { getAIService, type CrocheAIService } from '@/services/ai';
 import { sessionStore } from './sessionStore';
 import { ToolRunner } from '@/services/ai/tools';
@@ -16,6 +16,7 @@ import type { UserProfile, ErrorDnaEntry, MistakeRecord, TrapResult } from '@/do
 interface AppState {
   ready: boolean;
   bootstrapError: boolean;
+  recordError: StorageCorruptionError | null;
   retryBootstrap: () => Promise<void>;
   profile: UserProfile | null;
   dna: ErrorDnaEntry[];
@@ -39,6 +40,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const tools = useMemo(() => new ToolRunner(repos, ai), [repos, ai]);
 
   const [ready, setReady] = useState(false);
+  const [recordError, setRecordError] = useState<StorageCorruptionError | null>(null);
   const [bootstrapError, setBootstrapError] = useState(false);
   const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [dna, setDna] = useState<ErrorDnaEntry[]>([]);
@@ -68,9 +70,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [repos, loadFor]);
 
   const retryBootstrap = useCallback(async () => {
-    setBootstrapError(false);
+    setBootstrapError(false); setRecordError(null);
     try { await refresh(); setReady(true); }
-    catch { setBootstrapError(true); }
+    catch (e) { setBootstrapError(true); if (e instanceof StorageCorruptionError) setRecordError(e); }
   }, [refresh]);
 
   useEffect(() => { void retryBootstrap(); }, [retryBootstrap]);
@@ -94,6 +96,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value: AppState = {
     ready,
     bootstrapError,
+    recordError,
     retryBootstrap,
     profile,
     dna,

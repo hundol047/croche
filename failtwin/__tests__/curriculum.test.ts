@@ -32,7 +32,7 @@ describe('authored curriculum units and honest coverage', () => {
         }
       }
     }
-    expect(ids.size).toBe(226);
+    expect(ids.size).toBe(252);
   });
   it('distributes authored choice keys instead of always placing them first', () => {
     const positions = new Set<number>();

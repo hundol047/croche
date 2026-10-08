@@ -70,10 +70,10 @@ export function toMemorySnippet(entry: ErrorDnaEntry, at: string = nowIso()): Me
 /** Build the compact context block that gets inserted into the AI prompt. */
 export function buildMemoryContext(
   entries: ErrorDnaEntry[],
-  problem: Pick<Problem, 'subject' | 'topic'>,
+  problem: Pick<Problem, 'subject' | 'topic' | 'educationLevel'>,
   limit = 4,
 ): MemorySnippet[] {
-  const relevant = selectRelevantMemories(entries, {
+  const relevant = selectRelevantMemories(entries.filter(e => !e.legacyAggregate && e.subject === problem.subject && (e.educationLevel ?? 'university') === (problem.educationLevel ?? 'university')), {
     subject: problem.subject,
     topic: problem.topic,
   }, limit);

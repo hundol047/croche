@@ -159,3 +159,24 @@ DNA 점수 엔진과 리포트 집계는 유지했습니다. 채점과 출제 �
 | 완료 단원·복습 | [375px](screenshots/curriculum-elementary-375.png) | [375px](screenshots/curriculum-review-polished-375.png) · [430px](screenshots/curriculum-review-polished-430.png) · [768px](screenshots/curriculum-review-polished-768.png) · [1440px](screenshots/curriculum-review-polished-1440.png) |
 | 새로고침 뒤 저장 복구 | 준비 문항이 메모리에만 남았음 | [375px](screenshots/curriculum-refresh-recovery-375.png) · [1440px](screenshots/curriculum-refresh-recovery-1440.png) |
 | 다음 행동·하단 폭 | [기존 분석](screenshots/analysis-375.png) | [375px](screenshots/analysis-footer-polished-375.png) · [1440px](screenshots/analysis-footer-polished-1440.png) |
+
+## 기록 복구·오답 복습·과목 구분 (2026-10-08)
+
+복습 목록은 새 카드 묶음 대신 학습 단계·과목 선택, 검색, 구분선 있는 문항 목록으로 구성했습니다. 상세 화면은 문제→내 답→정답·해설→이전 제출 순서로 읽고 ‘이 문제 다시 풀기’를 주 행동으로 둡니다. 재풀이가 새 출제 수를 늘리지 않는다는 설명은 작은 보조 문장으로 제공합니다. 최근 제출 순서로 목록을 정렬하고 정답으로 고친 문제는 오답 목록에서 빠지되 전체 풀이에 남습니다.
+
+손상 기록 화면은 ‘기록 복구’ 제목과 원본 보존 상태를 먼저 보여줍니다. 정상 백업 복원을 주 행동으로 두고, 원본 내보내기와 백업이 없는 경우의 명시적 초기화를 구분합니다. 초기화 경고는 펼쳐서 확인합니다. 답 입력 바로 위에는 실제 저장 상태와 재시도만 보이며 ‘저장됨’을 제출/서버 동기화처럼 표시하지 않습니다.
+
+같은 오류 이름이 여러 과목에 있어도 학교급·과목을 각 행에 표시합니다. 과거 통합 점수는 별도 설명과 함께 보존하되 현재 패턴보다 뒤에 놓고 평균 위험도에 섞지 않습니다. 근거가 없는 오답은 위험 숫자 대신 정답 비교와 다음 행동을 보여줍니다. 기존 잉크 블루, 구분선, 600px 콘텐츠 열과 44px 이상 터치 영역을 유지했습니다. 장문 지문은 문단을 나누고 정답 선택과 입력·제출 영역은 아래에 이어 배치합니다.
+
+| 상태 | 실제 Chromium 최종 캡처 |
+|---|---|
+| 손상 원본 보호·백업 복원 | [375px](screenshots/remediation-damaged-record-recovery-375.png) · [430px](screenshots/remediation-damaged-record-recovery-430.png) · [768px](screenshots/remediation-damaged-record-recovery-768.png) · [1440px](screenshots/remediation-damaged-record-recovery-1440.png) |
+| 원문·답·해설·재풀이 | [375px](screenshots/remediation-review-question-detail-375.png) · [430px](screenshots/remediation-review-question-detail-430.png) · [768px](screenshots/remediation-review-question-detail-768.png) · [1440px](screenshots/remediation-review-question-detail-1440.png) |
+| 과목별 DNA·이전 통합 기록 | [375px](screenshots/remediation-scoped-dna-records-375.png) · [430px](screenshots/remediation-scoped-dna-records-430.png) · [768px](screenshots/remediation-scoped-dna-records-768.png) · [1440px](screenshots/remediation-scoped-dna-records-1440.png) |
+| 장문 읽기 뒤 보기·제출 | [375px](screenshots/remediation-supplement-long-reading-end-375.png) · [430px](screenshots/remediation-supplement-long-reading-end-430.png) · [768px](screenshots/remediation-supplement-long-reading-end-768.png) · [1440px](screenshots/remediation-supplement-long-reading-end-1440.png) |
+| 입력 저장 실패·다시 시도 | [375px](screenshots/remediation-draft-save-failure-375.png) · [입력 보존](screenshots/remediation-practice-draft-restored-375.png) · [Trap 초안](screenshots/remediation-trap-draft-restored-375.png) |
+| 정답으로 고친 뒤 복습 목록 | [375px](screenshots/remediation-review-list-corrected-375.png) |
+| 수식 표기 오채점 전후 | [이전 오답](screenshots/before-review/equivalent-answer.png) · [같은 답의 정답 처리](screenshots/remediation-equivalent-answer-375.png) · [계수 오답은 원인 미확인](screenshots/remediation-neutral-coefficient-analysis-375.png) |
+| 장문 지문의 읽는 폭 | [1440px](screenshots/remediation-supplement-long-reading-1440.png) |
+
+캡처의 기록은 브라우저 검증용 신규 프로필·자체 수식·합성 과거 통합 점수입니다. 실제 학습자 성과나 공식 시험/역사 감수 결과로 제시하지 않습니다. 긴 화면의 위·아래를 각각 캡처하고 문장 줄바꿈·가로 넘침·컨트롤 구분·데스크톱 여백을 확인합니다. 네이티브 키보드·SafeArea·뒤로 가기는 미검증입니다.

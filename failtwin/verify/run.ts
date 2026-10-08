@@ -22,6 +22,7 @@ import '../__tests__/schemas.test';
 import '../__tests__/prediction.test';
 import '../__tests__/report.test';
 import '../__tests__/storage.test';
+import '../__tests__/remediation.test';
 import '../__tests__/trapEval.test';
 import '../__tests__/learningEvents.test';
 import '../__tests__/mockLoop.test';

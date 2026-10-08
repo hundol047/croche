@@ -24,6 +24,7 @@ import { sanitizeStrings } from './toneGuard';
 import { clamp, round1 } from '@/utils/clamp';
 import type { Result } from '@/utils/result';
 import { TRAP_TEMPLATES } from './trapTemplates';
+import { inferPracticeErrorType } from '@/domain/practiceEvidence';
 import { assessAnswer } from '@/domain/answerAssessment';
 import { practiceCatalog, practiceProblem, VARIANTS_PER_FAMILY } from '@/content/practiceVariants';
 import { Err } from '@/utils/result';
@@ -67,7 +68,7 @@ export class MockCrocheAIService implements CrocheAIService {
     if (isCorrect) {
       const analysis: MistakeAnalysis = {
         isCorrect: true,
-        reason: `정답입니다. ${problem.topic}의 핵심을 정확히 적용했어요.`,
+        reason: `정답입니다. ${problem.topic}의 정답과 일치합니다.`,
         evidence: [`제출한 답: ${attempt.userAnswer}`, `정답 근거: ${problem.explanation}`],
         correctionStrategy:
           '지금처럼 답을 확정하기 전 핵심 조건을 한 번 더 확인하는 습관을 유지하세요.',
@@ -79,20 +80,20 @@ export class MockCrocheAIService implements CrocheAIService {
       return validateMistakeAnalysis(sanitizeStrings(analysis, ['reason', 'correctionStrategy', 'evidence']));
     }
 
-    // Wrong → infer the most likely cognitive mistake.
-    const errorType = inferErrorType(problem, attempt.userAnswer, attempt.userReasoning);
+    // A wrong answer establishes a cause only when a bounded comparison supports it.
+    const errorType = inferPracticeErrorType(problem, attempt.userAnswer);
     const severity = inferSeverity(input);
     const analysis: MistakeAnalysis = {
       isCorrect: false,
       errorType,
-      errorTitle: errorTypeLabel(errorType),
-      reason: buildReason(problem, errorType, attempt.userAnswer),
+      errorTitle: errorType ? errorTypeLabel(errorType) : undefined,
+      reason: errorType ? buildReason(problem, errorType, attempt.userAnswer) : '답이 정답과 다릅니다. 제출한 답만으로 오답 원인은 확인할 수 없습니다.',
       evidence: buildEvidence(problem, attempt.userAnswer, attempt.userReasoning),
-      correctionStrategy: buildCorrection(errorType),
+      correctionStrategy: errorType ? buildCorrection(errorType) : '정답 해설과 작성한 풀이를 비교하고 다른 답을 입력해보세요.',
       severity,
-      confidence: 0.72,
+      confidence: errorType ? 0.72 : 0,
       relatedConcepts: [problem.topic],
-      recurrenceRisk: round1(clamp(45 + severity * 8 + input.relevantMemories.length * 3, 0, 100)),
+      recurrenceRisk: errorType ? round1(clamp(45 + severity * 8 + input.relevantMemories.length * 3, 0, 100)) : 0,
     };
     return validateMistakeAnalysis(
       sanitizeStrings(analysis, ['reason', 'correctionStrategy', 'evidence', 'errorTitle']),
@@ -145,9 +146,9 @@ export class MockCrocheAIService implements CrocheAIService {
       }
       return Err('EXHAUSTED: 준비된 Trap을 모두 열어봤습니다.');
     }
-    const templates = TRAP_TEMPLATES[input.targetErrorType] ?? TRAP_TEMPLATES['verification_omission'];
-    const list = templates.filter((t) => t.subject === input.subject);
-    const matching = list.length > 0 ? list : templates;
+    const templates = TRAP_TEMPLATES[input.targetErrorType] ?? [];
+    const matching = templates.filter((t) => t.subject === input.subject);
+    if (!matching.length) return Err('UNAVAILABLE: 이 과목의 해당 패턴 훈련은 아직 준비되지 않았습니다. 기본 문제를 연습해주세요.');
     const available = matching.filter((t) => !(input.avoidQuestions ?? []).includes(t.question));
     if (!available.length) return Err('EXHAUSTED: 이 패턴의 준비된 문제를 모두 열어봤습니다. 다른 패턴이나 기본 문제를 선택해주세요.');
     const unseen = available.filter((t) => !input.recentTopics.includes(t.topic));
@@ -195,17 +196,6 @@ export class MockCrocheAIService implements CrocheAIService {
 }
 
 // ───────────────────────── heuristics ─────────────────────────
-
-function inferErrorType(problem: Problem, answer: string, reasoning?: string): ErrorType {
-  // Prefer the problem's designed target (the mistake it was built to probe)
-  // unless the reasoning text strongly signals a different pattern.
-  const text = `${answer} ${reasoning ?? ''}`.toLowerCase();
-  if (/빨리|급하게|대충|just|quick/.test(text)) return 'rushed_reasoning';
-  if (/단위|unit|km|m\/s/.test(text) && problem.topic.includes('단위')) return 'unit_error';
-  if (/부호|minus|음수|negative|\+|-/.test(text) && problem.targetErrorType === 'sign_error')
-    return 'sign_error';
-  return problem.targetErrorType ?? 'calculation_error';
-}
 
 function inferSeverity(input: AnalyzeInput): number {
   // Higher severity when the user was very confident but wrong, or when this

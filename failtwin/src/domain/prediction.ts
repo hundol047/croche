@@ -1,7 +1,7 @@
 import { clamp, round1 } from '@/utils/clamp';
 import { daysBetween, nowIso } from '@/utils/date';
 import { errorTypeLabel } from './errorTypes';
-import type { ErrorDnaEntry, Prediction } from './types';
+import type { ErrorDnaEntry, Prediction, EducationLevel } from './types';
 
 /**
  * Deterministic baseline prediction derived purely from Error DNA.
@@ -16,9 +16,10 @@ import type { ErrorDnaEntry, Prediction } from './types';
  */
 export function predictFromDna(
   entries: ErrorDnaEntry[],
-  ctx: { subject?: string; topic?: string } = {},
+  ctx: { subject?: string; topic?: string; educationLevel?: EducationLevel } = {},
   at: string = nowIso(),
 ): Prediction | null {
+  entries = entries.filter(e => !e.legacyAggregate && (!ctx.subject || e.subject === ctx.subject) && (!ctx.educationLevel || (e.educationLevel??'university') === ctx.educationLevel));
   if (entries.length === 0) return null;
 
   const ranked = [...entries]

@@ -25,6 +25,8 @@ export interface UserProfile {
  * record. Fields map 1:1 to the Memory concept required by the spec.
  */
 export interface ErrorDnaEntry {
+  /** Older combined scores are preserved but never corrected by a new course answer. */
+  legacyAggregate?: boolean;
   educationLevel?: EducationLevel;
   userId: string;
   subject: string;
@@ -109,6 +111,8 @@ export interface TrapProblem {
 }
 
 export interface MistakeRecord {
+  /** Immutable question snapshot for review, including generated questions. */
+  problem?: Problem;
   educationLevel?: EducationLevel;
   beforeScore?: number | null;
   afterScore?: number | null;
@@ -125,6 +129,8 @@ export interface MistakeRecord {
 }
 
 export interface TrapResult {
+  educationLevel?: EducationLevel;
+  subject?: string;
   topic?: string;
   beforeScore?: number | null;
   afterScore?: number | null;

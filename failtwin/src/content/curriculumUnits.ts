@@ -1,3 +1,4 @@
+import { CURRICULUM_SUPPLEMENTS } from './curriculumSupplements';
 import type { EducationLevel, Subject, Problem } from '@/domain/types';
 import type { SchoolSpec } from './schoolTypes';
 /** Authored learning outline, not a certified national achievement-standard map.
@@ -3140,7 +3141,8 @@ export const CURRICULUM_UNITS: CurriculumUnit[] = [
         "explanation": "가: 광복(1945년), 나: 남북한 유엔 동시 가입(1991년)이므로 차는 46년입니다."
       }
     ]
-  }
+  },
+  ...CURRICULUM_SUPPLEMENTS,
 ];
 export function curriculumUnits(level: EducationLevel, subject: Subject) {
   return CURRICULUM_UNITS.filter(u => u.educationLevel === level && u.subject === subject);

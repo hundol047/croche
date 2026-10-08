@@ -106,8 +106,9 @@ export default function Analysis() {
   const accent = correct ? colors.success : scoreColor(analysis.recurrenceRisk);
 
   return (
-    <Screen footer={<Button label={correct ? problem.curriculumUnitId ? '다음 단원 문제 고르기' : '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => {
-      if (correct && problem.curriculumUnitId) router.navigate('/curriculum');
+    <Screen footer={<Button label={sessionStore.get('practiceReturnTo') === 'review' ? '복습 목록으로' : correct ? problem.curriculumUnitId ? '다음 단원 문제 고르기' : '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => {
+      if (sessionStore.get('practiceReturnTo') === 'review') router.navigate('/review');
+      else if (correct && problem.curriculumUnitId) router.navigate('/curriculum');
       else router.push(correct ? '/practice' : '/prediction');
     }} />}>
       <Caption>{problem.subject} · {problem.topic}</Caption>
@@ -133,12 +134,13 @@ export default function Analysis() {
           </View>
         </View> : null}
 
-        <Section title={correct ? '잘한 점' : '실수 원인'} first><Body>{analysis.reason}</Body></Section>
+        <Section title={correct ? '정답 확인' : analysis.errorType ? '확인할 실수 패턴' : '답 비교'} first><Body>{analysis.reason}</Body></Section>
         {analysis.evidence.length > 0 ? <Section title="근거">
           {analysis.evidence.map((e, i) => <Text key={i} style={styles.evidence}>• {e}</Text>)}
         </Section> : null}
         <Section title="다음에 확인할 것"><Body>{analysis.correctionStrategy}</Body></Section>
-        {!correct ? <Section title="다음 문제 재발 위험도">
+        {!correct && !analysis.errorType ? <Caption>오답 원인 미확인 · Error DNA에는 반영하지 않았습니다.</Caption> : null}
+        {!correct && analysis.errorType ? <Section title="다음 문제 재발 위험도">
           <View style={styles.riskRow}><Text style={[styles.riskScore, { color: accent }]}>{Math.round(analysis.recurrenceRisk)} / 100</Text><Caption>위험 점수 · 확률이 아닙니다</Caption></View>
         </Section> : null}
       </View>

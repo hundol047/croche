@@ -20,7 +20,8 @@
     "test:web": "playwright test",
     "content:prepare-exam": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/prepare-exam.cjs",
     "content:history-packet": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/history-packet.cjs",
-    "content:check": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/history-packet.cjs --check && node scripts/qa-content-tools.cjs"
+    "content:check": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/history-packet.cjs --check && node scripts/qa-content-tools.cjs",
+    "serve:web": "node scripts/serve-web.cjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
