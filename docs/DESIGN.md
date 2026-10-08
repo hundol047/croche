@@ -118,3 +118,21 @@ DNA 점수 엔진과 리포트 집계는 유지했습니다. 채점과 출제 �
 375·430·768·1440px에서 새로운 학교급 흐름과 기존 온보딩·홈·풀이·분석·예측·Trap·리포트를 검증했습니다.
 캡처를 직접 열어 문장 줄바꿈·보기/입력 구분·버튼 위치·600px 데스크톱 폭과 여백을 확인했습니다.
 가로 넘침은 없습니다. 네이티브 키보드·SafeArea·뒤로 가기는 실행 환경이 없어 미검증입니다.
+
+
+## 단원·기출 화면 (2026-10-08)
+
+단원은 카드 대신 제목·범위·남은 문항을 구분선 있는 목록으로 배치했습니다. 학습 단계→과목→학년→단원 순서로 고르고, 단원에서 기본/응용 문항을 한 번씩 엽니다. 정답 뒤에는 같은 단원 목록으로 돌아갑니다. 초등·중등 학년과 고교·대학 과목 범위는 작성안이라는 점을 함께 표시했습니다.
+
+긴 범위 설명과 부족한 단원은 목록 뒤로 옮겨 작은 화면에서도 바로 문제를 찾도록 했습니다. 실제 기출 0개와 전문가 감수 대기 상태에는 출처와 다음 확인 항목을 보이고, 예시를 실데이터처럼 꾸미지 않았습니다. 데스크톱은 기존 600px 콘텐츠 폭과 중앙 정렬을 유지했습니다. 키보드 포커스 테두리는 접근성을 위해 유지했습니다.
+
+| 상태 | 캡처 |
+|---|---|
+| 이전 학교 문제 목록 | [375px](screenshots/school-practice-elementary-375.png) |
+| 신규 단원 목록 | [375px](screenshots/curriculum-elementary-375.png), [430px](screenshots/curriculum-elementary-430.png), [768px](screenshots/curriculum-elementary-768.png), [1440px](screenshots/curriculum-elementary-1440.png) |
+| 5–6학년 필터 | [375px](screenshots/curriculum-grade-filter-375.png), [768px](screenshots/curriculum-grade-filter-768.png) |
+| 한국사 단원·풀이 | [430px 목록](screenshots/curriculum-history-430.png), [375px 풀이](screenshots/unit-history-solve-375.png) |
+| 공식 기출 빈 화면 | [375px](screenshots/official-exams-empty-375.png), [1440px](screenshots/official-exams-empty-1440.png) |
+| 전문가 감수 대기 | [375px](screenshots/history-review-pending-375.png), [1440px](screenshots/history-review-pending-1440.png) |
+
+모든 캡처는 실제 Chromium에서 얻었습니다. 추가 화면은 네 폭에서 가로 넘침·입력·버튼·소진 안내를 확인했습니다. 원문/기출/감수 미완료 상태를 완성됐다고 표시하지 않습니다.

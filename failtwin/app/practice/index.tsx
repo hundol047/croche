@@ -121,6 +121,7 @@ export default function PracticeIndex() {
       </View> : null}
 
       <View style={styles.section}>
+        <ActionRow label="단원·기출 보기" hint="학년별 자체 문항 · 기출 수록 및 감수 상태" onPress={() => router.push('/curriculum')} testID="go-curriculum" />
         <SectionTitle>{level==='university'?'기본 문제 다시 풀기':'유형별 예시 다시 풀기'}</SectionTitle>
         <View style={styles.list}>
           {(level==='university'?problemsBySubject(subject):[0,1,2,3,4].map(i=>practiceProblemAt(subject,difficulty,i,level))).map(p => <Pressable key={p.id} disabled={generating} accessibilityState={{ disabled: generating }} accessibilityRole="button" accessibilityLabel={`${p.topic} 문제 풀기`}

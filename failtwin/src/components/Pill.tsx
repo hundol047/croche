@@ -6,14 +6,15 @@ interface PillProps {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  disabled?: boolean;
 }
 
 /** Compact choice control; shape and border communicate selection as well as color. */
-export function Pill({ label, selected, onPress }: PillProps) {
+export function Pill({ label, selected, onPress, disabled = false }: PillProps) {
   const body = <View style={[styles.control, selected ? styles.selected : undefined]}>
     <Text style={[styles.label, selected ? styles.selectedLabel : undefined]}>{label}</Text>
   </View>;
-  return onPress ? <Pressable onPress={onPress} accessibilityRole="button" aria-pressed={!!selected} accessibilityState={{ selected }}>{body}</Pressable> : body;
+  return onPress || disabled ? <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" aria-pressed={!!selected} accessibilityState={{ selected, disabled }}>{body}</Pressable> : body;
 }
 
 const styles = StyleSheet.create({

@@ -89,7 +89,8 @@ export const problemSchema = z
     explanation: z.string().min(1).max(1200),
     difficulty,
     source: z.enum(['bank', 'ai', 'trap']),
-    contentOrigin: z.enum(['parameterized', 'original-csat']).optional(),
+    contentOrigin: z.enum(['parameterized', 'original-csat', 'curriculum-original']).optional(),
+    curriculumUnitId: z.string().min(1).max(120).optional(),
     targetErrorType: errorType.optional(),
   })
   .refine((p)=>isCurriculumSubject(p.educationLevel??'university',p.subject), {message:'subject is not supported at this education level',path:['subject']})

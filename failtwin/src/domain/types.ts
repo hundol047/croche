@@ -43,7 +43,8 @@ export interface ErrorDnaEntry {
 
 export interface Problem {
   educationLevel?: EducationLevel;
-  contentOrigin?: 'parameterized' | 'original-csat';
+  contentOrigin?: 'parameterized' | 'original-csat' | 'curriculum-original';
+  curriculumUnitId?: string;
   id: string;
   subject: Subject;
   topic: string;

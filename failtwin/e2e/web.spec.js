@@ -193,6 +193,8 @@ test('uncertain wrong Trap gives neutral feedback and does not invent a DNA chan
 });
 
 test('empty deep routes recover and unauthenticated routes return to onboarding', async ({ page }) => {
+  await page.goto('/curriculum');
+  await expect(page.getByTestId('onboarding-demo').filter({ visible: true })).toBeVisible();
   await page.goto('/analysis');
   await expect(page.getByTestId('onboarding-demo').filter({ visible: true })).toBeVisible();
   await page.getByTestId('onboarding-demo').filter({ visible: true }).click();

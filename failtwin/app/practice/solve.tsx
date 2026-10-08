@@ -14,6 +14,7 @@ import { sessionStore } from '@/state/sessionStore';
 import { uid } from '@/utils/id';
 import { nowIso } from '@/utils/date';
 import { educationLabel } from '@/domain/curriculum';
+import { OFFICIAL_EXAMS } from '@/content/officialExams';
 import type { Confidence, Attempt } from '@/domain/types';
 
 export default function Solve() {
@@ -64,7 +65,7 @@ export default function Solve() {
   return (
     <Screen>
       <View style={styles.topRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="문제 목록으로 돌아가기" onPress={() => router.navigate('/practice')} hitSlop={12}>
+        <Pressable accessibilityRole="button" accessibilityLabel={problem.curriculumUnitId ? '단원 목록으로 돌아가기' : '문제 목록으로 돌아가기'} onPress={() => router.navigate(problem.curriculumUnitId ? '/curriculum' : '/practice')} hitSlop={12}>
           <View style={styles.back}><ArrowIcon direction="left" /></View>
         </Pressable>
         <Caption style={styles.context}>{educationLabel[problem.educationLevel??'university']} · {problem.subject} · {problem.topic}</Caption>
@@ -72,6 +73,9 @@ export default function Solve() {
 
       <View style={styles.question}>
         <Title style={styles.qTitle}>문제</Title>
+        {OFFICIAL_EXAMS.some(e => e.problem.id === problem.id) ? <Caption>공식 기출 · 원문·확정 정답·이용 조건 대조 기록 포함</Caption> : null}
+        {problem.contentOrigin === 'curriculum-original' ? <Caption>단원별 자체 제작 연습 · 공식 교육과정 대조 전</Caption> : null}
+        {problem.subject === '한국사' ? <Caption>한국사 학습용 요약 · 전문가 감수 전</Caption> : null}
         <Text style={styles.prompt}>{problem.prompt}</Text>
         {problem.answerType === 'mcq' && problem.options ? (
           <View style={styles.options}>

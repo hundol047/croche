@@ -139,3 +139,15 @@ src/services/croche/
 문제는 한 개씩 계산합니다. 실제 AI 생성이나 810,000개 독립 집필이 아니며,
 [문제 은행 구성](../docs/PROBLEM_BANK.md)에서 범위와 출제 정책을 확인할 수 있습니다.
 Trap의 기존 출제 이력·소진 안내와 데모·사용자 기록 분리는 유지합니다.
+
+## 단원별 문항·공식 출처·감수
+
+`/curriculum`에 113개 단원, 226개 문항 배치(동일 본문/정답/보기 중복을 합치면 142개)를 추가했습니다. 공식 교육과정 대조 전 작성안입니다. 기출은 0개, 전문가 감수는 미완료로 표시합니다. 기존 변형 은행과 ID·출제 이력을 분리했습니다.
+
+- [범위·출처·남은 작업](../docs/CURRICULUM_AND_SOURCES.md)
+- [공식 기출 검토·수록 도구](../docs/EXAM_IMPORT.md)
+- [한국사 감수 CSV·JSON](../docs/history-review/README.md)
+- `npm run content:history-packet`: 검토 자료 갱신
+- `npm run content:check`: 자료 해시 및 합성 수록 도구 회귀 검사
+
+공식 원문과 권리 확인 없이 `--release`하지 않습니다. 도구의 구조·해시 검사를 실제 기출 대조나 전문가 감수로 부르지 않습니다.

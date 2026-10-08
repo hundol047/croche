@@ -31,3 +31,6 @@ coverage/
 # browser QA artifacts
 test-results/
 playwright-report/
+
+# External exam artifacts pending source and redistribution review
+.content-staging/

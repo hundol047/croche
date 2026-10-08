@@ -106,7 +106,10 @@ export default function Analysis() {
   const accent = correct ? colors.success : scoreColor(analysis.recurrenceRisk);
 
   return (
-    <Screen footer={<Button label={correct ? '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => router.push(correct ? '/practice' : '/prediction')} />}>
+    <Screen footer={<Button label={correct ? '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => {
+      if (correct && problem.curriculumUnitId) router.navigate('/curriculum');
+      else router.push(correct ? '/practice' : '/prediction');
+    }} />}>
       <Caption>{problem.subject} · {problem.topic}</Caption>
       <Title style={styles.title}>풀이 분석</Title>
       <View style={styles.verdict}>

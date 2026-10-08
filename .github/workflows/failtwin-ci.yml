@@ -41,6 +41,9 @@ jobs:
       - name: Test
         run: npm test -- --ci --maxWorkers=2
 
+      - name: Content evidence and import regression checks
+        run: npm run content:check
+
       - name: Production web export
         run: npm run build:web -- --max-workers 2
 

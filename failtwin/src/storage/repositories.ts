@@ -66,6 +66,9 @@ export class ProfileRepo {
 }
 
 export interface LearningState {
+  /** Separate versioned reservations for fixed authored unit questions. */
+  curriculumProgress?: Record<string, number>;
+  curriculumSelection?: {educationLevel: import('@/domain/types').EducationLevel; subject: import('@/domain/types').Subject; group: string};
   issued?: IssuedQuestion[];
   practiceSelection?: {educationLevel: import('@/domain/types').EducationLevel; subject: import('@/domain/types').Subject; difficulty: import('@/domain/types').Problem['difficulty']};
   /** Versioned next variant per subject/difficulty/family; 45 university counters plus 360 school counters. */

@@ -140,6 +140,7 @@ export default function Trap() {
         <View style={styles.targetTag}><TargetIcon size={16} /><Text style={styles.targetTagText}>타깃: {errorTypeLabel(trap.targetErrorType)}</Text></View>
         <Card>
           <Caption>{trap.subject} · {trap.topic}</Caption>
+          {trap.subject === '한국사' ? <Caption>한국사 학습용 요약 · 전문가 감수 전</Caption> : null}
           <Text style={styles.question}>{trap.question}</Text>
           {trap.answerType === 'mcq' && trap.options ? <View style={styles.options}>
             {trap.options.map((o) => <Pressable key={o} accessibilityRole="button" accessibilityLabel={`보기 ${o}`} aria-pressed={answer===o} accessibilityState={{selected:answer===o}} onPress={()=>{setAnswer(o);setGuidance('');}} style={[styles.optionButton,answer===o?styles.selectedOption:undefined]}><Text style={styles.option}>{o}</Text></Pressable>)}

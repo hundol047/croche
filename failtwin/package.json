@@ -17,7 +17,10 @@
     "demo:loop": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js .verify-out/verify/demo-loop.js",
     "lint": "eslint . --ext .ts,.tsx",
     "build:web": "expo export --platform web",
-    "test:web": "playwright test"
+    "test:web": "playwright test",
+    "content:prepare-exam": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/prepare-exam.cjs",
+    "content:history-packet": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/history-packet.cjs",
+    "content:check": "tsc -p verify/tsconfig.verify.json && node -r ./verify/preload.js scripts/history-packet.cjs --check && node scripts/qa-content-tools.cjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
