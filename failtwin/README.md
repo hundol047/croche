@@ -103,7 +103,7 @@ SPA 깊은 경로는 `index.html`로 fallback해야 합니다.
 ```
 src/services/ai/
   CrocheAIService.ts         # 분석 / 예측 / Trap / 연습 문제 인터페이스
-  MockCrocheAIService.ts     # 결정적 분류와 과목당 18개 추가 문제, 로컬 데모 백엔드
+  MockCrocheAIService.ts     # 결정적 분류와 검증된 문제 은행, 로컬 데모 백엔드
   RealCrocheAIService.ts     # 서버 클라이언트 어댑터, fake client로 검증
   modelPolicy.ts            # 작업별 모델 티어 정책
   tools.ts                  # Zod로 검증하는 tool abstraction
@@ -132,4 +132,8 @@ src/services/croche/
 정답·오답·판정 불가를 구분하고 지원 밖 표기를 DNA와 HIT에 반영하지 않습니다.
 `3e^(-2x)`와 `3e^{-2x}`는 같은 답으로 처리합니다. 일반 CAS가 아니며 지원 범위는
 [채점 문서](../docs/GRADING.md)에 명시했습니다.
-추가 문제 총 54개와 Trap의 출제 이력을 사용자별로 저장해 새로고침 후 중복을 피하고 소진을 안내합니다.
+과목당 30,000개(쉬움·보통·어려움 각 10,000개), 총 90,000개의 조건 조합 문제를 제공합니다.
+45개 유형의 정답을 전수 검증했으며, 유형별 진행 번호로 새로고침 후 재출제를 방지합니다.
+문제는 한 개씩 계산합니다. 실제 AI 생성이나 90,000개 독립 집필이 아니며,
+[문제 은행 구성](../docs/PROBLEM_BANK.md)에서 범위와 출제 정책을 확인할 수 있습니다.
+Trap의 기존 출제 이력·소진 안내와 데모·사용자 기록 분리는 유지합니다.

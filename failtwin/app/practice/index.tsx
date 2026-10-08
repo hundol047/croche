@@ -1,5 +1,5 @@
 import { goToMain } from '@/utils/navigation';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -7,99 +7,129 @@ import { ActionRow } from '@/components/ActionRow';
 import { Button } from '@/components/Button';
 import { ErrorState } from '@/components/ErrorState';
 import { Pill } from '@/components/Pill';
-import { Title, Body, Caption } from '@/components/typography';
+import { Title, SectionTitle, Body, Caption } from '@/components/typography';
 import { ArrowIcon } from '@/components/icons';
 import { colors, spacing, typography } from '@/constants/theme';
 import { DEMO_SUBJECTS, problemsBySubject } from '@/content/problems';
 import { useApp } from '@/state/AppContext';
 import { sessionStore } from '@/state/sessionStore';
 import type { Subject, Problem } from '@/domain/types';
-import { issuePractice } from '@/domain/questionIssuance';
-import { practiceVariants } from '@/content/practiceVariants';
+import { issuePractice, practiceAvailability } from '@/domain/questionIssuance';
+import { DIFFICULTIES, PROBLEMS_PER_DIFFICULTY, PROBLEMS_PER_SUBJECT, type Difficulty } from '@/content/practiceVariants';
+
+type Availability = ReturnType<typeof practiceAvailability>;
+const number = (n: number) => n.toLocaleString('ko-KR');
+const difficultyLabel = (d: Difficulty) => d === 'easy' ? '쉬움' : d === 'medium' ? '보통' : '어려움';
+const difficultyHint: Record<Difficulty, string> = {
+  easy: '기본 개념을 한 단계씩 적용합니다.',
+  medium: '조건을 확인하고 계산을 연결합니다.',
+  hard: '여러 개념과 풀이 단계를 함께 다룹니다.',
+};
 
 export default function PracticeIndex() {
   const router = useRouter();
   const { ai, repos, profile } = useApp();
   const [subject, setSubject] = useState<Subject>('공업수학');
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [generating, setGenerating] = useState(false);
+  const busy = useRef(false);
   const [error, setError] = useState(false);
-  const [remaining, setRemaining] = useState<number | null>(null);
+  const [availability, setAvailability] = useState<Availability | null>(null);
   const [exhausted, setExhausted] = useState(false);
+
+  const loadAvailability = useCallback(async () => {
+    if (!profile || ai.kind !== 'mock') return null;
+    return practiceAvailability(await repos.learning.get(profile.userId), subject, difficulty);
+  }, [repos, profile, ai, subject, difficulty]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    setRemaining(null); setExhausted(false); setError(false);
-    if (profile && ai.kind === 'mock') void repos.learning.get(profile.userId).then((state) => {
-      if (!active) return;
-      const seen = (state.issued ?? []).filter((q) => q.kind === 'practice' && q.subject === subject).map((q) => q.text);
-      const left = practiceVariants(subject).filter((p) => !seen.includes(p.prompt)).length;
-      setRemaining(left); setExhausted(left === 0);
+    setAvailability(null); setExhausted(false); setError(false);
+    void loadAvailability().then((items) => {
+      if (active) { setAvailability(items); setExhausted(items !== null && items.every(f => f.remaining === 0)); }
     }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
-  }, [repos, profile, ai, subject]));
-
-  const problems = problemsBySubject(subject);
+  }, [loadAvailability]));
 
   const openProblem = async (p: Problem) => {
-    try { await sessionStore.startPractice(p); router.push('/practice/solve'); }
-    catch { setError(true); }
+    await sessionStore.startPractice(p);
+    router.push('/practice/solve');
   };
-
-  const generate = async () => {
-    if (!profile || generating) return;
-    setGenerating(true);
-    setError(false);
+  const generate = async (topic?: string) => {
+    if (!profile || busy.current) return;
+    busy.current = true; setGenerating(true); setError(false);
     try {
-      const next = await issuePractice(repos, ai, profile.userId, subject);
+      const next = await issuePractice(repos, ai, profile.userId, subject, difficulty, topic);
+      setAvailability(await loadAvailability());
       await openProblem(next);
     } catch (e) {
       if (e instanceof Error && e.message.startsWith('EXHAUSTED:')) setExhausted(true);
       else setError(true);
-    }
-    finally { setGenerating(false); }
+    } finally { busy.current = false; setGenerating(false); }
   };
+  const remaining = availability?.reduce((count, f) => count + f.remaining, 0);
 
   return (
     <Screen>
       <Title>문제 풀기</Title>
-      <Body muted style={styles.sub}>과목을 고르고 풀 문제를 선택하세요.</Body>
+      <Body muted style={styles.sub}>과목과 난이도를 고르고 연습을 시작하세요.</Body>
       <View style={styles.choices}>
-        {DEMO_SUBJECTS.map((s) => <Pill key={s} label={s} selected={subject === s} onPress={() => setSubject(s)} />)}
+        {DEMO_SUBJECTS.map(s => <Pill key={s} label={s} selected={subject === s} onPress={generating ? undefined : () => setSubject(s)} />)}
       </View>
+      <View style={styles.choices}>
+        {DIFFICULTIES.map(d => <Pill key={d} label={difficultyLabel(d)} selected={difficulty === d} onPress={generating ? undefined : () => setDifficulty(d)} />)}
+      </View>
+      <Body muted>{difficultyHint[difficulty]}</Body>
+      <Caption style={styles.hint}>{ai.kind === 'mock' ? `${subject} ${number(PROBLEMS_PER_SUBJECT)}개 · 난이도별 ${number(PROBLEMS_PER_DIFFICULTY)}개` : '선택한 과목과 난이도로 문제를 요청합니다.'}</Caption>
+      <Button label="새 문제 풀기" loading={generating} disabled={exhausted || (ai.kind === 'mock' && !availability)} onPress={() => generate()} testID="generate-problem" />
+      <Caption style={styles.hint}>{remaining !== undefined ? `${difficultyLabel(difficulty)} · 남은 ${number(remaining)} / ${number(PROBLEMS_PER_DIFFICULTY)}개` : '새 문제도 같은 학습 기록에 연결됩니다.'}</Caption>
+      {exhausted ? <Body>선택한 난이도의 문제를 모두 열어봤습니다. 다른 난이도나 아래 기본 문제를 선택하세요.</Body> : null}
+      {error ? <ErrorState message="문제를 불러오지 못했어요." onRetry={() => generate()} /> : null}
 
-      <View style={styles.list}>
-        {problems.map((p) => <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.topic} 문제 풀기`}
-          onPress={() => openProblem(p)} style={({ pressed }) => [styles.problem, pressed ? styles.pressed : undefined]}>
-          <View style={styles.problemHeader}>
-            <Text style={styles.topic}>{p.topic}</Text>
-            <Text style={styles.difficulty}>{difficultyLabel(p.difficulty)}</Text>
+      {availability ? <View style={styles.section}>
+        <SectionTitle>유형을 골라 연습하기</SectionTitle>
+        <View style={styles.list}>
+          {availability.map(f => <Pressable key={f.id} disabled={generating || f.remaining === 0} accessibilityRole="button"
+            accessibilityState={{ disabled: generating || f.remaining === 0 }} accessibilityLabel={`${f.topic} 유형 풀기`}
+            onPress={() => generate(f.topic)} style={({ pressed }) => [styles.typeRow, pressed ? styles.pressed : undefined]}>
+            <Text style={styles.typeTopic}>{f.topic}</Text>
+            <Text style={styles.count}>{f.remaining === 0 ? '모두 열어봄' : `${number(f.remaining)}개`}</Text>
             <ArrowIcon size={18} />
-          </View>
-          <Text style={styles.prompt} numberOfLines={3}>{p.prompt}</Text>
-        </Pressable>)}
-      </View>
+          </Pressable>)}
+        </View>
+        <Caption>검증된 유형의 조건 조합 문제입니다. 이미 열린 문제는 다음 출제에서 제외됩니다. Mock AI · Croche 미연결</Caption>
+      </View> : null}
 
-      <Button label="새 문제 만들기" variant="secondary" loading={generating} disabled={exhausted} onPress={generate} testID="generate-problem" />
-      <Caption style={styles.hint}>{remaining !== null ? `준비된 추가 문제 · 남은 ${remaining}개` : '새 문제도 같은 학습 기록에 연결됩니다.'}</Caption>
-      {exhausted ? <Body>이 과목의 추가 문제를 모두 열어봤습니다. 위의 기본 문제를 다시 연습하거나 다른 과목을 선택하세요.</Body> : null}
-      {error ? <ErrorState message="문제를 불러오지 못했어요." onRetry={generate} /> : null}
+      <View style={styles.section}>
+        <SectionTitle>기본 문제 다시 풀기</SectionTitle>
+        <View style={styles.list}>
+          {problemsBySubject(subject).map(p => <Pressable key={p.id} disabled={generating} accessibilityState={{ disabled: generating }} accessibilityRole="button" accessibilityLabel={`${p.topic} 문제 풀기`}
+            onPress={() => { void openProblem(p).catch(() => setError(true)); }} style={({ pressed }) => [styles.problem, pressed ? styles.pressed : undefined]}>
+            <View style={styles.problemHeader}>
+              <Text style={styles.topic}>{p.topic}</Text>
+              <Text style={styles.count}>{difficultyLabel(p.difficulty)}</Text>
+              <ArrowIcon size={18} />
+            </View>
+            <Text style={styles.prompt} numberOfLines={3}>{p.prompt}</Text>
+          </Pressable>)}
+        </View>
+      </View>
       <ActionRow label="홈으로" onPress={() => goToMain(router)} quiet />
     </Screen>
   );
 }
 
-function difficultyLabel(d: Problem['difficulty']): string {
-  return d === 'easy' ? '쉬움' : d === 'medium' ? '보통' : '어려움';
-}
-
 const styles = StyleSheet.create({
-  sub: { marginTop: spacing.sm, marginBottom: spacing.xl },
-  choices: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
-  list: { borderTopWidth: 1, borderTopColor: colors.border, marginBottom: spacing.xl },
+  sub: { marginTop: spacing.sm, marginBottom: spacing.lg },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.sm },
+  section: { marginTop: spacing.xl },
+  list: { borderTopWidth: 1, borderTopColor: colors.border, marginBottom: spacing.md },
   problem: { paddingVertical: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   problemHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  typeRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  typeTopic: { ...typography.body, flex: 1, color: colors.text, marginRight: spacing.sm },
   topic: { ...typography.section, flex: 1, color: colors.text, marginRight: spacing.sm },
-  difficulty: { ...typography.caption, color: colors.textMuted, marginRight: spacing.md },
+  count: { ...typography.caption, color: colors.textMuted, marginRight: spacing.sm },
   prompt: { ...typography.body, fontSize: 14, color: colors.textMuted },
   hint: { marginTop: spacing.sm, marginBottom: spacing.md },
   pressed: { opacity: 0.7 },

@@ -11,7 +11,6 @@ import type {
   TrapProblem,
   Problem,
   ErrorType,
-  Subject,
 } from '@/domain/types';
 import {
   validateMistakeAnalysis,
@@ -26,7 +25,7 @@ import { clamp, round1 } from '@/utils/clamp';
 import type { Result } from '@/utils/result';
 import { TRAP_TEMPLATES } from './trapTemplates';
 import { assessAnswer } from '@/domain/answerAssessment';
-import { practiceVariants } from '@/content/practiceVariants';
+import { practiceCatalog, practiceProblem, VARIANTS_PER_FAMILY } from '@/content/practiceVariants';
 import { Err } from '@/utils/result';
 
 /**
@@ -48,7 +47,7 @@ export class MockCrocheAIService implements CrocheAIService {
   readonly kind = 'mock' as const;
   private latencyMs: number;
   private trapTurns = new Map<string, number>();
-  private practiceTurns = new Map<Subject, number>();
+  private practiceTurns = new Map<string, number>();
 
   constructor(opts: MockOptions = {}) {
     this.latencyMs = opts.latencyMs ?? 450;
@@ -164,12 +163,20 @@ export class MockCrocheAIService implements CrocheAIService {
 
   async generateProblem(input: GenProblemInput): Promise<Result<Problem>> {
     await this.delay();
-    const available = practiceVariants(input.subject).filter((p) => !(input.avoidPrompts ?? []).includes(p.prompt));
-    if (!available.length) return Err('EXHAUSTED: 이 과목의 추가 문제를 모두 열어봤습니다. 기본 문제를 다시 연습해주세요.');
-    const turn = this.practiceTurns.get(input.subject) ?? 0;
-    this.practiceTurns.set(input.subject, turn + 1);
-    const next = available[input.avoidPrompts ? 0 : turn % available.length]!;
-    return validateProblem(next);
+    const difficulty = input.difficulty ?? 'medium';
+    const families = practiceCatalog(input.subject, difficulty).filter(f => !input.topic || f.topic === input.topic);
+    if (!families.length) return Err('지원하지 않는 문제 유형입니다.');
+    const key = `${input.subject}:${difficulty}:${input.topic ?? ''}`;
+    const total = families.length * VARIANTS_PER_FAMILY;
+    const turn = this.practiceTurns.get(key) ?? 0;
+    const avoided = new Set(input.avoidPrompts ?? []);
+    for (let i = turn; i < total; i += 1) {
+      const next = practiceProblem(input.subject, difficulty, families[i % families.length]!.id, Math.floor(i / families.length));
+      if (avoided.has(next.prompt)) continue;
+      this.practiceTurns.set(key, i + 1);
+      return validateProblem(next);
+    }
+    return Err('EXHAUSTED: 선택한 난이도 또는 유형의 문제를 모두 열어봤습니다. 기본 문제를 다시 연습해주세요.');
   }
 }
 

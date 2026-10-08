@@ -67,3 +67,25 @@ DNA 점수 엔진과 리포트 집계는 유지했습니다. 채점과 출제 �
 동작은 이번 검증 범위에 포함되지 않았습니다. Real Croche는 NOT CONNECTED입니다.
 
 검사 결과는 [QA 기록](QA.md), 정확한 발표 동작은 [심사 가이드](JUDGE_DEMO.md)를 참고하세요.
+
+## 난이도별 문제 은행 화면 · 2026-10-08
+
+이번 문제 목록 비교 기준은 `0a0e98f`입니다.
+[이전 · 과목당 18개](screenshots/before-bank/practice-375.png) →
+[현재 · 난이도·유형 선택](screenshots/practice-375.png).
+
+기존에는 기본 문제를 다 읽은 뒤 아래의 생성 버튼을 찾았습니다. 지금은 과목·난이도를 고른 직후
+‘새 문제 풀기’를 누를 수 있습니다. 난이도 설명과 남은 수를 짧게 표시하고,
+원하는 유형은 얇은 구분선의 목록에서 고릅니다. 기본 문제 다시 풀기는 별도 영역에 유지했습니다.
+전체 90,000개의 행이나 큰 숫자 카드 대신 선택한 난이도의 5개 유형만 보여줍니다.
+조건 조합 문제의 출처와 Mock 상태는 보조 본문으로 밝힙니다.
+
+| 화면 | 375px | 430px | 1440px |
+|---|---|---|---|
+| 쉬움 선택 | [375px](screenshots/bank-easy-375.png) | [430px](screenshots/bank-easy-430.png) | [1440px](screenshots/bank-easy-1440.png) |
+| 어려움 선택 | [375px](screenshots/bank-hard-375.png) | [430px](screenshots/bank-hard-430.png) | [1440px](screenshots/bank-hard-1440.png) |
+| Python 어려움 풀이 | [375px](screenshots/bank-python-hard-solve-375.png) | [430px](screenshots/bank-python-hard-solve-430.png) | [1440px](screenshots/bank-python-hard-solve-1440.png) |
+| 난이도 소진 | [375px](screenshots/practice-exhausted-375.png) | [430px](screenshots/practice-exhausted-430.png) | [1440px](screenshots/practice-exhausted-1440.png) |
+
+소진 화면은 9,999개를 이미 열어본 테스트 이력에서 마지막 문제를 실제로 출제·정답 제출한 뒤 캡처합니다.
+실제 사용자의 10,000회 풀이 기록이 아닙니다. [문제 은행](PROBLEM_BANK.md)에 구성과 저장 정책을 기록했습니다.

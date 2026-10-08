@@ -48,7 +48,7 @@ export interface Problem {
   explanation: string;
   difficulty: 'easy' | 'medium' | 'hard';
   source: 'bank' | 'ai' | 'trap';
-  /** For trap/ai problems: the cognitive mistake this problem is designed to probe. */
+  /** The cognitive mistake this practice or trap problem is designed to probe. */
   targetErrorType?: ErrorType;
 }
 

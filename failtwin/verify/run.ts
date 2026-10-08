@@ -29,6 +29,7 @@ import '../__tests__/realService.test';
 import '../__tests__/serviceStatus.test';
 import '../__tests__/answerAssessment.test';
 import '../__tests__/questionIssuance.test';
+import '../__tests__/practiceBank.test';
 import '../__tests__/proxyClient.test';
 
 void run();

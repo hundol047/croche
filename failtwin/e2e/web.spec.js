@@ -283,27 +283,101 @@ test('new questions vary by type and survive reload in all three subjects', asyn
     }
   }
   const state = await learning(page);
-  expect(state.issued.filter((q) => q.kind === 'practice')).toHaveLength(9);
+  expect(Object.values(state.practiceProgress).reduce((n, value) => n + value, 0)).toBe(9);
   expect(state.mistakes).toHaveLength(9);
 });
 
-test('finite practice pool reports exhaustion and keeps other subjects available', async ({ page }) => {
+test('last bank variant, exhaustion, reload and other difficulties remain consistent', async ({ page }) => {
   await demo(page);
-  for (let i = 0; i < 18; i += 1) {
-    await page.goto('/practice');
-    await page.getByTestId('generate-problem').filter({ visible: true }).click();
-    await page.getByLabel('답 입력', { exact: true }).waitFor();
-  }
+  // Fixture represents 9,999 previously opened variants; exercise the real final issuance.
+  await page.evaluate(() => {
+    const key = 'ft:demo-user:learning'; const state = JSON.parse(localStorage.getItem(key));
+    state.practiceProgress = Object.fromEntries(['series', 'ode', 'domain', 'product', 'system'].map(id => [`v2:공업수학:medium:${id}`, id === 'system' ? 1999 : 2000]));
+    localStorage.setItem(key, JSON.stringify(state));
+  });
   await page.goto('/practice');
-  await expect(page.getByText('준비된 추가 문제 · 남은 0개', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('보통 · 남은 1 / 10,000개', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.getByTestId('generate-problem').filter({ visible: true }).click();
+  await page.getByLabel('답 입력', { exact: true }).fill('-1');
+  await page.getByTestId('submit-answer').filter({ visible: true }).click();
+  await expect(page.getByText('정답입니다!', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.goto('/practice');
+  await expect(page.getByText('보통 · 남은 0 / 10,000개', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByTestId('generate-problem').filter({ visible: true })).toHaveAttribute('aria-disabled', 'true');
   await capture(page, 'practice-exhausted');
   await page.reload();
   await expect(page.getByTestId('generate-problem').filter({ visible: true })).toHaveAttribute('aria-disabled', 'true');
-  expect((await learning(page)).mistakes).toHaveLength(0);
-  await page.getByRole('button', { name: '일반물리', exact: true }).click();
-  await expect(page.getByText('준비된 추가 문제 · 남은 18개', { exact: true }).filter({ visible: true })).toBeVisible();
+  expect((await learning(page)).mistakes).toHaveLength(1);
+  await page.getByRole('button', { name: '쉬움', exact: true }).click();
+  await expect(page.getByText('쉬움 · 남은 10,000 / 10,000개', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByTestId('generate-problem').filter({ visible: true })).toBeEnabled();
+});
+
+test('30,000 per subject: every difficulty grades correctly and topic choice persists', async ({ page }) => {
+  await demo(page);
+  const cases = [
+    { subject: '공업수학', answers: ['3', '[-1,1]', '12'] },
+    { subject: '일반물리', answers: ['2', '24', '31.35'] },
+    { subject: 'Python 프로그래밍', answers: ['2', '18', '10'] },
+  ];
+  for (const item of cases) for (let i = 0; i < 3; i += 1) {
+    await page.goto('/practice');
+    await page.getByRole('button', { name: item.subject, exact: true }).click();
+    const label = ['쉬움', '보통', '어려움'][i];
+    await page.getByRole('button', { name: label, exact: true }).click();
+    await expect(page.getByText(`${item.subject} 30,000개 · 난이도별 10,000개`, { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(page.getByText(`${label} · 남은 10,000 / 10,000개`, { exact: true }).filter({ visible: true })).toBeVisible();
+    if (item.subject === '공업수학' && i === 0) await capture(page, 'bank-easy');
+    if (item.subject === '일반물리' && i === 2) await capture(page, 'bank-hard');
+    await page.getByTestId('generate-problem').filter({ visible: true }).click();
+    await page.getByLabel('답 입력', { exact: true }).waitFor();
+    const problem = await page.evaluate(() => JSON.parse(localStorage.getItem('ft:demo-user:session')).currentProblem);
+    expect(problem.difficulty).toBe(['easy', 'medium', 'hard'][i]);
+    expect(problem.source).toBe('bank');
+    await page.reload();
+    if (item.subject === 'Python 프로그래밍' && i === 2) await capture(page, 'bank-python-hard-solve');
+    await page.getByLabel('답 입력', { exact: true }).fill(item.answers[i]);
+    await page.getByTestId('submit-answer').filter({ visible: true }).click();
+    await expect(page.getByText('정답입니다!', { exact: true }).filter({ visible: true })).toBeVisible();
+  }
+  await page.goto('/practice');
+  await page.getByRole('button', { name: '공업수학', exact: true }).click();
+  await page.getByRole('button', { name: '초기값과 지수함수 유형 풀기', exact: true }).click();
+  await page.getByLabel('답 입력', { exact: true }).fill('3e^(-2x)');
+  await page.getByTestId('submit-answer').filter({ visible: true }).click();
+  await expect(page.getByText('정답입니다!', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.goto('/practice');
+  await page.getByRole('button', { name: '초기값과 지수함수 유형 풀기', exact: true }).click();
+  await page.getByLabel('답 입력', { exact: true }).fill('3e^(-3x)');
+  await page.getByTestId('submit-answer').filter({ visible: true }).click();
+  await expect(page.getByText('정답입니다!', { exact: true }).filter({ visible: true })).toBeVisible();
+  const state = await learning(page);
+  expect(state.practiceProgress['v2:공업수학:medium:ode']).toBe(2);
+  expect(state.mistakes).toHaveLength(11);
+  expect(new Set(state.mistakes.map(m => m.problemId)).size).toBe(11);
+  expect(state.mistakes.every(m => m.isCorrect)).toBe(true);
+  expect(state.dna.find(d => d.errorType === 'condition_omission').score).toBe(74);
+});
+
+test('failed bank reservation retries without consuming a variant or accumulating DNA', async ({ page }) => {
+  await demo(page);
+  await page.getByTestId('go-practice').filter({ visible: true }).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let failOnce = true;
+    Storage.prototype.setItem = function (key, value) {
+      if (failOnce && key === 'ft:demo-user:learning') { failOnce = false; throw new Error('Storage full'); }
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByTestId('generate-problem').filter({ visible: true }).click();
+  await expect(page.getByText('문제를 불러오지 못했어요.', { exact: true }).filter({ visible: true })).toBeVisible();
+  expect((await learning(page)).practiceProgress).toBeUndefined();
+  await page.getByRole('button', { name: '다시 시도', exact: true }).click();
+  await page.getByLabel('답 입력', { exact: true }).waitFor();
+  const state = await learning(page);
+  expect(state.practiceProgress['v2:공업수학:medium:series']).toBe(1);
+  expect(state.mistakes).toHaveLength(0); expect(state.dna[0].score).toBe(83);
 });
 
 test('ungradable Trap stays neutral; reload, HIT, correction and exhaustion stay consistent', async ({ page }) => {

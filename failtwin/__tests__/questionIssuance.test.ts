@@ -1,9 +1,8 @@
-import { practiceVariants } from '@/content/practiceVariants';
-import { issuePractice, issueTrap } from '@/domain/questionIssuance';
+import { DIFFICULTIES, practiceCatalog, VARIANTS_PER_FAMILY } from '@/content/practiceVariants';
+import { issuePractice, issueTrap, practiceAvailability, practiceProgressKey } from '@/domain/questionIssuance';
 import { makeRepositories } from '@/storage/repositories';
 import { MemoryKVStore } from '@/storage/kv';
 import { MockCrocheAIService } from '@/services/ai/MockCrocheAIService';
-import { assessAnswer } from '@/domain/answerAssessment';
 import { resetDemo } from '@/state/onboarding';
 import type { Subject } from '@/domain/types';
 
@@ -11,72 +10,20 @@ const subjects: Subject[] = ['공업수학', '일반물리', 'Python 프로그�
 const service = () => new MockCrocheAIService({ latencyMs: 0 });
 
 describe('durable, varied question issuance', () => {
-  it('ships 54 distinct prompts and accepts all their derived answers', () => {
-    for (const subject of subjects) {
-      const pool = practiceVariants(subject);
-      expect(pool).toHaveLength(18);
-      expect(new Set(pool.map((p) => p.prompt)).size).toBe(18);
-      expect(new Set(pool.map((p) => p.topic)).size).toBe(3);
-      for (const p of pool) expect(assessAnswer(p, p.correctAnswer).verdict).toBe('correct');
-    }
-  });
-  it('verifies generated physics answers from the numbers actually shown', () => {
-    for (const p of practiceVariants('일반물리')) {
-      const numbers = [...p.prompt.matchAll(/\d+/g)].map((m) => Number(m[0]));
-      const expected = p.id.includes(':motion:') ? numbers[0]! * numbers[1]! ** 2 / 2
-        : p.id.includes(':energy:') ? numbers[0]! * numbers[1]! ** 2 / 2 : numbers[0]! / 3.6;
-      expect(Number(p.correctAnswer)).toBeCloseTo(expected);
-    }
-  });
-  it('checks the math answers against each displayed condition, including wrong signs and removed domain points', () => {
-    for (const p of practiceVariants('공업수학')) {
-      if (p.id.includes(':series:')) {
-        const radius = Number(p.prompt.match(/x\/(\d+)/)![1]);
-        expect(assessAnswer(p, `[-${radius},${radius}]`).verdict).toBe('correct');
-        expect(assessAnswer(p, `(-${radius},${radius})`).verdict).toBe('incorrect');
-      } else if (p.id.includes(':ode:')) {
-        const k = Number(p.prompt.match(/y' \+ (\d+)y/)![1]);
-        const c = Number(p.prompt.match(/y\(0\)=(\d+)/)![1]);
-        expect(assessAnswer(p, `${c}*exp(-${k}*x)`).verdict).toBe('correct');
-        expect(assessAnswer(p, `${c}*exp(${k}*x)`).verdict).toBe('incorrect');
-      } else {
-        const x = Number(p.prompt.match(/g\((\d+)\)/)![1]);
-        expect(assessAnswer(p, 'undefined').verdict).toBe('correct');
-        expect(assessAnswer(p, String(2 * x)).verdict).toBe('incorrect');
-      }
-    }
-  });
-  it('verifies Python iteration results independently from displayed bounds', () => {
-    for (const p of practiceVariants('Python 프로그래밍')) {
-      let expected = 0;
-      if (p.id.includes(':range:')) {
-        const m = p.prompt.match(/range\(0, (\d+), (\d+)\)/)!;
-        for (let x = 0; x < Number(m[1]); x += Number(m[2])) expected += x;
-      } else if (p.id.includes(':squares:')) {
-        const m = p.prompt.match(/range\(1, (\d+)\)/)!;
-        for (let x = 1; x < Number(m[1]); x += 1) expected += x * x;
-      } else {
-        const m = p.prompt.match(/range\((\d+)\)/)!;
-        for (let x = 0; x < Number(m[1]); x += 1) if (x % 2 === 0) expected += 1;
-      }
-      expect(Number(p.correctAnswer)).toBe(expected);
-    }
-  });
   it('does not repeat abandoned practice questions after service/repository reload', async () => {
     const kv = new MemoryKVStore(); const texts: string[] = [];
-    for (let i = 0; i < 18; i += 1) {
+    for (let i = 0; i < 30; i += 1) {
       const p = await issuePractice(makeRepositories(kv), service(), 'u', '공업수학');
       expect(texts.includes(p.prompt)).toBe(false); texts.push(p.prompt);
     }
-    let exhausted = false;
-    try { await issuePractice(makeRepositories(kv), service(), 'u', '공업수학'); } catch (e) { exhausted = (e as Error).message.startsWith('EXHAUSTED:'); }
-    expect(exhausted).toBe(true);
+    expect(Object.values((await makeRepositories(kv).learning.get('u')).practiceProgress!).reduce((s,v)=>s+v,0)).toBe(30);
     expect(await makeRepositories(kv).mistakes.get('u')).toHaveLength(0);
   });
-  it('keeps subject/user histories independent and handles concurrent duplicate reservations', async () => {
+  it('keeps subject/user histories independent and reserves distinct concurrent questions', async () => {
     const repos = makeRepositories(new MemoryKVStore());
     const results = await Promise.allSettled([issuePractice(repos, service(), 'u', '일반물리'), issuePractice(repos, service(), 'u', '일반물리')]);
-    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(2);
+    expect(new Set(results.map(r => r.status === 'fulfilled' ? r.value.id : 'failed')).size).toBe(2);
     const second = await issuePractice(repos, service(), 'u', '일반물리');
     const firstForOtherUser = await issuePractice(repos, service(), 'other', '일반물리');
     expect(second.prompt).not.toBe(firstForOtherUser.prompt);
@@ -94,10 +41,53 @@ describe('durable, varied question issuance', () => {
     const kv = new FailingKV(); const repos = makeRepositories(kv);
     let failed = false;
     try { await issuePractice(repos, service(), 'u', '일반물리'); } catch { failed = true; }
-    expect(failed).toBe(true); expect((await repos.learning.get('u')).issued).toBe(undefined);
+    expect(failed).toBe(true); expect((await repos.learning.get('u')).practiceProgress).toBe(undefined);
     kv.failing = false;
     expect((await issuePractice(repos, service(), 'u', '일반물리')).correctAnswer).toBe('24');
   });
+
+  it('keeps difficulty/type counters separate and preserves legacy learning history', async () => {
+    const repos = makeRepositories(new MemoryKVStore());
+    const legacy = { kind: 'practice' as const, subject: '공업수학' as const, text: 'legacy exercise' };
+    await repos.learning.update('u', s=>({...s, issued:[legacy]}));
+    const first = await issuePractice(repos, service(), 'u', '공업수학', 'easy', '등차수열의 합');
+    expect(first.topic).toBe('등차수열의 합'); expect(first.difficulty).toBe('easy');
+    expect((await issuePractice(repos, service(), 'u', '공업수학', 'hard')).difficulty).toBe('hard');
+    const state=await repos.learning.get('u');
+    expect(state.issued).toEqual([legacy]); expect(state.dna).toEqual([]); expect(state.mistakes).toEqual([]);
+    expect(practiceAvailability(state,'공업수학','easy').reduce((n,f)=>n+f.remaining,0)).toBe(9999);
+    expect(practiceAvailability(state,'공업수학','medium').reduce((n,f)=>n+f.remaining,0)).toBe(10000);
+  });
+  it('issues the last variant then honestly reports exhaustion without wrapping; other types remain available', async () => {
+    const repos=makeRepositories(new MemoryKVStore());
+    const catalog=practiceCatalog('일반물리','hard');
+    const key=practiceProgressKey('일반물리','hard',catalog[0]!.id);
+    await repos.learning.update('u', s=>({...s,practiceProgress:{[key]:1999}}));
+    const last=await issuePractice(repos,service(),'u','일반물리','hard',catalog[0]!.topic);
+    expect(last.id.endsWith(':1999')).toBe(true);
+    let failed=false; try { await issuePractice(repos,service(),'u','일반물리','hard',catalog[0]!.topic); } catch(e) { failed=(e as Error).message.startsWith('EXHAUSTED:'); }
+    expect(failed).toBe(true); expect((await repos.learning.get('u')).practiceProgress![key]).toBe(2000);
+    expect((await issuePractice(repos,service(),'u','일반물리','hard')).topic).toBe(catalog[1]!.topic);
+    await repos.learning.update('u', s=>({...s,practiceProgress:Object.fromEntries(catalog.map(f=>[practiceProgressKey('일반물리','hard',f.id),2000]))}));
+    failed=false; try { await issuePractice(repos,service(),'u','일반물리','hard'); } catch(e) { failed=(e as Error).message.startsWith('EXHAUSTED:'); }
+    expect(failed).toBe(true);
+    expect((await issuePractice(repos,service(),'u','일반물리','easy')).difficulty).toBe('easy');
+  });
+  it('stores all 90,000 issuance positions in fewer than 4 KiB and refuses corrupt cursors', async () => {
+    const repos=makeRepositories(new MemoryKVStore()); const progress:Record<string,number>={};
+    for(const subject of subjects) for(const difficulty of DIFFICULTIES) for(const f of practiceCatalog(subject,difficulty)) progress[practiceProgressKey(subject,difficulty,f.id)]=VARIANTS_PER_FAMILY;
+    await repos.learning.update('u',s=>({...s,practiceProgress:progress}));
+    const state=await repos.learning.get('u');
+    expect(Object.keys(state.practiceProgress!)).toHaveLength(45);
+    expect(encodeURIComponent(JSON.stringify(progress)).replace(/%[0-9A-F]{2}|[^%]/g,'x').length<4096).toBe(true);
+    for(const invalid of [-1,2001,0.5]) {
+      const key=practiceProgressKey('공업수학','easy','derivative');
+      await repos.learning.update('u',s=>({...s,practiceProgress:{[key]:invalid}}));
+      let failed=false; try { await issuePractice(repos,service(),'u','공업수학','easy'); } catch { failed=true; }
+      expect(failed).toBe(true); expect((await repos.learning.get('u')).practiceProgress![key]).toBe(invalid);
+    }
+  });
+
   it('persists abandoned Trap issuance and reports finite pool exhaustion', async () => {
     const kv = new MemoryKVStore();
     const input = { subject: '공업수학' as const, targetErrorType: 'condition_omission', recentTopics: [], relevantMemories: [] };
@@ -115,6 +105,7 @@ describe('durable, varied question issuance', () => {
     await issuePractice(repos, service(), 'real-user', '일반물리');
     await resetDemo(repos);
     expect((await repos.learning.get('demo-user')).issued).toBe(undefined);
-    expect((await repos.learning.get('real-user')).issued).toHaveLength(1);
+    expect(Object.values((await repos.learning.get('real-user')).practiceProgress!)).toEqual([1]);
+    expect((await repos.learning.get('demo-user')).practiceProgress).toBe(undefined);
   });
 });

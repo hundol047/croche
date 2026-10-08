@@ -67,6 +67,8 @@ export class ProfileRepo {
 
 export interface LearningState {
   issued?: IssuedQuestion[];
+  /** Versioned next variant per subject/difficulty/family; at most 45 counters in v2. */
+  practiceProgress?: Record<string, number>;
   dna: ErrorDnaEntry[];
   mistakes: MistakeRecord[];
   traps: TrapResult[];
