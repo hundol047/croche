@@ -1,70 +1,67 @@
-/**
- * Croche client boundary.
- *
- * ⚠️ REAL CROCHE INTEGRATION POINT ⚠️
- * This file is where the actual Croche SDK / client is constructed. In this
- * build it is a typed placeholder because the Croche SDK/package was not
- * available in the development environment and could not be installed
- * (offline). Do NOT invent SDK symbols here — wire the real SDK when available.
- *
- * To wire the real SDK:
- *   1. Install the official Croche SDK package (per Croche docs).
- *   2. Replace `createCrocheClient` below to construct the real client using
- *      the env config (base URL / API key / workspace).
- *   3. Implement RealCrocheAIService using this client (see RealCrocheAIService.ts).
- */
+/** FailTwin-owned proxy contract. This is not an assumed Croche API endpoint. */
+export interface CrocheCompletion {
+  model: string;
+  system: string;
+  user: string;
+  context: string[];
+}
+export interface CrocheClient { completeJson(args: CrocheCompletion): Promise<unknown> }
+interface AbortHandle { signal: unknown; abort(): void }
+export type ProxyFetch = (url: string, options: {
+  method: string; headers: Record<string, string>; body: string; credentials: 'include'; signal: unknown;
+}) => Promise<{ ok: boolean; text(): Promise<string> }>;
 
-export interface CrocheClientConfig {
-  baseUrl: string;
-  apiKey: string;
-  modelCheap: string;
-  modelQuality: string;
+export function validProxyUrl(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    if (url.username || url.password || url.search || url.hash) return false;
+    return url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
+  } catch { return false; }
 }
 
-export function readCrocheConfig(): CrocheClientConfig {
+export function createProxyClient(endpoint: string, options: {
+  fetcher?: ProxyFetch; timeoutMs?: number; onStatus?: (connected: boolean) => void;
+} = {}): CrocheClient | null {
+  if (!validProxyUrl(endpoint)) return null;
+  const runtime = globalThis as unknown as { fetch: ProxyFetch; AbortController: new () => AbortHandle };
+  const fetcher = options.fetcher ?? runtime.fetch;
+  if (!fetcher || !runtime.AbortController) return null;
   return {
-    baseUrl: process.env.EXPO_PUBLIC_CROCHE_BASE_URL ?? '',
-    // Prefer server-proxied secrets; see .env.example.
-    apiKey: process.env.CROCHE_API_KEY ?? '',
-    modelCheap: process.env.EXPO_PUBLIC_CROCHE_MODEL_CHEAP ?? 'croche-cheap-default',
-    modelQuality: process.env.EXPO_PUBLIC_CROCHE_MODEL_QUALITY ?? 'croche-quality-default',
+    async completeJson(args) {
+      const controller = new runtime.AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error('AI 서버 응답 시간이 초과됐습니다.')); }, options.timeoutMs ?? 12000);
+      });
+      try {
+        const request = (async () => {
+          const response = await fetcher(endpoint, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', signal: controller.signal, body: JSON.stringify(args),
+          });
+          if (!response.ok) throw new Error('AI 서버에 연결하지 못했습니다.');
+          const body = await response.text();
+          if (body.length > 128000) throw new Error('AI 서버 응답이 너무 큽니다.');
+          // Each purpose is further validated by the Real service's Zod schema.
+          const data: unknown = JSON.parse(body);
+          if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('AI 서버 응답 형식이 잘못됐습니다.');
+          return data;
+        })();
+        const result = await Promise.race([request, deadline]);
+        options.onStatus?.(true);
+        return result;
+      } catch {
+        options.onStatus?.(false);
+        // Never expose upstream messages, keys, submitted answers or server bodies.
+        throw new Error('AI 서버 요청에 실패했습니다. 연결 상태를 확인하고 다시 시도해주세요.');
+      } finally { if (timer !== undefined) clearTimeout(timer); }
+    },
   };
 }
 
-/**
- * Shape of the minimal client the Real AI service expects. When you wire the
- * real SDK, make the returned object satisfy this interface (adapt as needed to
- * the official SDK surface — this is intentionally thin).
- */
-export interface CrocheClient {
-  /**
-   * Run a chat/completion that MUST return JSON matching the given purpose.
-   * The real implementation sends: system+user prompt, selected memories (as
-   * context), the chosen model (tier), and asks for structured JSON output.
-   */
-  completeJson(args: {
-    model: string;
-    system: string;
-    user: string;
-    /** Pre-selected memory snippets (NOT the whole history) for context. */
-    context: string[];
-  }): Promise<unknown>;
-}
-
-/**
- * Returns a real client when configured, else null. Returning null lets the AI
- * factory fall back to the Mock so the app always runs.
- */
-export function createCrocheClient(): CrocheClient | null {
-  const cfg = readCrocheConfig();
-  if (!cfg.baseUrl) return null;
-
-  // TODO(croche): construct and return the real Croche SDK client here.
-  // Example (pseudo — replace with the official SDK):
-  //   const sdk = new CrocheSDK({ baseUrl: cfg.baseUrl, apiKey: cfg.apiKey });
-  //   return {
-  //     completeJson: ({ model, system, user, context }) =>
-  //       sdk.chat.completeJson({ model, messages: [...], context }),
-  //   };
-  return null;
+export function createCrocheClient(onStatus?: (connected: boolean) => void): CrocheClient | null {
+  if (!process.env.EXPO_PUBLIC_CROCHE_MODEL_CHEAP?.trim() || !process.env.EXPO_PUBLIC_CROCHE_MODEL_QUALITY?.trim()) return null;
+  // Only the URL of an authenticated, server-owned proxy is public.
+  // The official SDK, model allowlist and CROCHE_API_KEY belong on that server.
+  return createProxyClient(process.env.EXPO_PUBLIC_CROCHE_PROXY_URL ?? '', { onStatus });
 }

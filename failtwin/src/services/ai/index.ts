@@ -17,7 +17,7 @@ export function resolveMode(): CrocheMode {
  *  - 'real-unavailable': configured for real but no client → fell back to Mock
  * The UI shows this so Mock is NEVER presented as real Croche (§6).
  */
-export type CrocheServiceStatus = 'mock' | 'real' | 'real-unavailable';
+export type CrocheServiceStatus = 'mock' | 'real' | 'real-pending' | 'real-error' | 'real-unavailable';
 
 let lastStatus: CrocheServiceStatus = 'mock';
 
@@ -39,9 +39,9 @@ export function getAIService(mode: CrocheMode = resolveMode()): CrocheAIService 
   if (singleton) return singleton;
 
   if (mode === 'real') {
-    const client = createCrocheClient();
+    const client = createCrocheClient((connected) => { lastStatus = connected ? 'real' : 'real-error'; });
     if (client) {
-      lastStatus = 'real';
+      lastStatus = 'real-pending';
       singleton = new RealCrocheAIService(client);
       return singleton;
     }

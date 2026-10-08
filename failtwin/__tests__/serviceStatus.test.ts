@@ -7,6 +7,21 @@ import {
 } from '@/services/ai';
 
 describe('AI service factory & status', () => {
+  it('does not send placeholder model identifiers even if a proxy URL is configured', () => {
+    const url = process.env.EXPO_PUBLIC_CROCHE_PROXY_URL;
+    const cheap = process.env.EXPO_PUBLIC_CROCHE_MODEL_CHEAP;
+    const quality = process.env.EXPO_PUBLIC_CROCHE_MODEL_QUALITY;
+    process.env.EXPO_PUBLIC_CROCHE_PROXY_URL = 'https://example.com/api';
+    delete process.env.EXPO_PUBLIC_CROCHE_MODEL_CHEAP;
+    delete process.env.EXPO_PUBLIC_CROCHE_MODEL_QUALITY;
+    setAIService(null);
+    expect(getAIService('real').kind).toBe('mock');
+    expect(getServiceStatus()).toBe('real-unavailable');
+    if (url === undefined) delete process.env.EXPO_PUBLIC_CROCHE_PROXY_URL; else process.env.EXPO_PUBLIC_CROCHE_PROXY_URL = url;
+    if (cheap === undefined) delete process.env.EXPO_PUBLIC_CROCHE_MODEL_CHEAP; else process.env.EXPO_PUBLIC_CROCHE_MODEL_CHEAP = cheap;
+    if (quality === undefined) delete process.env.EXPO_PUBLIC_CROCHE_MODEL_QUALITY; else process.env.EXPO_PUBLIC_CROCHE_MODEL_QUALITY = quality;
+    setAIService(null);
+  });
   it('defaults to mock mode and reports mock status', () => {
     setAIService(null); // reset singleton
     const svc = getAIService('mock');

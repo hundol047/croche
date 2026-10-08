@@ -35,6 +35,17 @@ const validAnalysis = {
 
 describe('RealCrocheAIService (fake client)', () => {
   const problem = problemById('eng-math-1')!;
+  it('times out a stalled client without exposing transport details', async () => {
+    const svc = new RealCrocheAIService({ completeJson: () => new Promise(() => undefined) }, { timeoutMs: 5 });
+    const r = await svc.predictNextMistake({ relevantMemories: [] });
+    expect(r.ok).toBe(false);
+  });
+  it('keeps upstream exception details out of the learner response', async () => {
+    const svc = new RealCrocheAIService({ completeJson: async () => { throw new Error('SECRET_PROVIDER_KEY'); } });
+    const r = await svc.predictNextMistake({ relevantMemories: [] });
+    if (r.ok) throw new Error('expected transport failure');
+    expect(r.error).not.toContain('SECRET_PROVIDER_KEY');
+  });
 
   it('parses and returns a valid MistakeAnalysis from the client', async () => {
     const client = new FakeClient([validAnalysis]);

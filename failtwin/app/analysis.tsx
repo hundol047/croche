@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { Card } from '@/components/Card';
+import { assessAnswer, UngradableAnswerError } from '@/domain/answerAssessment';
 import { Button } from '@/components/Button';
 import { ActionRow } from '@/components/ActionRow';
 import { Section } from '@/components/Section';
@@ -19,7 +19,7 @@ import { sessionStore } from '@/state/sessionStore';
 import { errorTypeLabel } from '@/domain/errorTypes';
 import type { MistakeAnalysis } from '@/domain/types';
 
-type Phase = 'loading' | 'error' | 'done';
+type Phase = 'loading' | 'error' | 'done' | 'ungraded';
 
 export default function Analysis() {
   const router = useRouter();
@@ -31,6 +31,7 @@ export default function Analysis() {
   const [analysis, setAnalysis] = useState<MistakeAnalysis | null>(null);
   const [beforeScore, setBeforeScore] = useState<number | null>(null);
   const [afterScore, setAfterScore] = useState<number | null>(null);
+  const [guidance, setGuidance] = useState('');
 
   const problem = sessionStore.get('currentProblem');
   const attempt = sessionStore.get('currentAttempt');
@@ -44,6 +45,10 @@ export default function Analysis() {
     running.current = true;
     setPhase('loading');
     try {
+      const assessment = assessAnswer(problem, attempt.userAnswer);
+      if (assessment.verdict === 'ungradable') {
+        setGuidance(assessment.guidance); setPhase('ungraded'); return;
+      }
       let record = (await repos.mistakes.get(profile.userId)).find((m) => m.attempt.id === attempt.id);
       if (!record) {
         const memories = buildMemoryContext(await repos.dna.get(profile.userId), problem);
@@ -57,7 +62,11 @@ export default function Analysis() {
       setAfterScore(record.afterScore ?? null);
       setPhase('done');
       await refresh();
-    } catch { completed.current = null; setPhase('error'); }
+    } catch (e) {
+      completed.current = null;
+      if (e instanceof UngradableAnswerError) { setGuidance(e.guidance); setPhase('ungraded'); }
+      else setPhase('error');
+    }
     finally { running.current = false; }
   }, [ai, attempt, problem, profile, repos, refresh]);
 
@@ -79,6 +88,11 @@ export default function Analysis() {
     );
   }
 
+  if (phase === 'ungraded') return <Screen><Title>판정 불가</Title><Body>{guidance}</Body>
+    <Caption>학습 기록과 Error DNA에는 반영하지 않았습니다.</Caption>
+    <Button label="답 다시 입력하기" onPress={() => router.replace('/practice/solve')} />
+  </Screen>;
+
   if (phase === 'error' || !analysis) {
     return (
       <Screen>
@@ -92,7 +106,7 @@ export default function Analysis() {
   const accent = correct ? colors.success : scoreColor(analysis.recurrenceRisk);
 
   return (
-    <Screen>
+    <Screen footer={<Button label={correct ? '다음 문제 풀기' : '다음 실수 예측 보기'} onPress={() => router.push(correct ? '/practice' : '/prediction')} />}>
       <Caption>{problem.subject} · {problem.topic}</Caption>
       <Title style={styles.title}>풀이 분석</Title>
       <View style={styles.verdict}>
@@ -102,7 +116,7 @@ export default function Analysis() {
         </Text>
       </View>
 
-      <Card>
+      <View style={styles.feedback}>
         {!correct && analysis.errorType ? <View style={styles.errorType}>
           <Caption>이번 풀이에서 확인한 실수</Caption>
           <Text style={styles.pattern}>{errorTypeLabel(analysis.errorType)}</Text>
@@ -124,9 +138,8 @@ export default function Analysis() {
         {!correct ? <Section title="다음 문제 재발 위험도">
           <View style={styles.riskRow}><Text style={[styles.riskScore, { color: accent }]}>{Math.round(analysis.recurrenceRisk)} / 100</Text><Caption>위험 점수 · 확률이 아닙니다</Caption></View>
         </Section> : null}
-      </Card>
+      </View>
 
-      <Button label="다음 실수 예측 보기" onPress={() => router.push('/prediction')} />
       <ActionRow label="실수 패턴 훈련하기" hint="Trap Mode" onPress={() => router.push('/trap')} />
       <ActionRow label="홈으로" onPress={() => goToMain(router)} quiet />
     </Screen>
@@ -135,6 +148,7 @@ export default function Analysis() {
 
 const styles = StyleSheet.create({
   title: { marginTop: spacing.xs },
+  feedback: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.lg, marginBottom: spacing.lg },
   verdict: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
   verdictText: { flex: 1, ...typography.bodyStrong, marginLeft: spacing.sm },
   errorType: { marginBottom: spacing.lg },

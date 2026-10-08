@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { ActionRow } from '@/components/ActionRow';
 import { ErrorDnaBars } from '@/components/ErrorDnaBars';
@@ -53,13 +52,13 @@ export default function Home() {
       <Caption>{profile?.name ?? '학습자'}님 · {profile?.goal ?? '학습 기록'}</Caption>
       <Title style={styles.title}>오늘의 학습 상태</Title>
 
-      <Card>
+      <View style={styles.dnaSection}>
         <SectionTitle right={hasData ? <Caption>평균 위험도 {Math.round(avgRisk)}</Caption> : null}>Error DNA</SectionTitle>
         {hasData ? <>
           <Caption>{profile?.isDemo ? '예시 기록' : '풀이 기록'} · 위험 점수 0–100</Caption>
           <View style={styles.dnaBlock}><ErrorDnaBars entries={dna} /></View>
         </> : <EmptyState title="아직 Error DNA가 없어요" description="문제를 풀면 나만의 실수 패턴이 여기에 기록됩니다." />}
-      </Card>
+      </View>
 
       <Button label={hasData ? '문제 풀기' : '첫 문제 풀기'} onPress={() => router.push('/practice')} testID="go-practice" />
 
@@ -92,6 +91,7 @@ const styles = StyleSheet.create({
   mode: { flex: 1, alignItems: 'flex-end', marginLeft: spacing.md },
   title: { marginTop: spacing.xs, marginBottom: spacing.xl },
   dnaBlock: { marginTop: spacing.lg },
+  dnaSection: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: spacing.lg, marginBottom: spacing.xl },
   next: { marginTop: spacing.xxl },
   patternRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   patternCaption: { ...typography.caption, color: colors.textMuted, marginLeft: spacing.sm },

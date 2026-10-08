@@ -41,14 +41,17 @@ export default function Report() {
 
       <View style={styles.metrics}>
         <View style={styles.metric}><Text style={styles.metricValue}>{traps.length ? `${Math.round(report.predictionHitRate * 100)}%` : '—'}</Text><Caption>예측 적중률</Caption></View>
-        <View style={[styles.metric, styles.metricLast]}><Text style={[styles.metricValue, { color: colors.success }]}>{report.correctedCount}개</Text><Caption>교정 완료 실수</Caption></View>
+        <View style={[styles.metric, styles.metricLast]}><Text style={[styles.metricValue, { color: colors.success }]}>{report.correctedCount}회</Text><Caption>정답으로 마친 연습</Caption></View>
       </View>
       <Caption>Trap {traps.length}회 중 예측 적중 {traps.filter((t) => t.predictionHit).length}회 · 관찰된 비율이며 미래 확률이 아닙니다</Caption>
 
       <Section title="주차별 실수 재발률">
-        <View style={styles.chartWrap} onLayout={(e) => setChartWidth(Math.max(120, Math.min(480, e.nativeEvent.layout.width)))}>
+        {report.recurrenceTrend.length > 1 ? <View style={styles.chartWrap} onLayout={(e) => setChartWidth(Math.max(120, Math.min(480, e.nativeEvent.layout.width)))}>
           <LineChart data={report.recurrenceTrend} width={chartWidth} />
-        </View>
+        </View> : report.recurrenceTrend.length === 1 ? <>
+          <Body>{report.recurrenceTrend[0]!.weekLabel} · 실수 재발률 {Math.round(report.recurrenceTrend[0]!.recurrenceRate * 100)}%</Body>
+          <Caption>현재 기록은 한 주에 모여 있습니다. 다른 주의 기록이 생기면 추이를 표시합니다.</Caption>
+        </> : <Caption>실수 기록이 쌓이면 주차별 재발률을 표시합니다.</Caption>}
       </Section>
 
       <Section title="Error DNA 변화">

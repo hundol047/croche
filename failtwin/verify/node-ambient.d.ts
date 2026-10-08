@@ -6,6 +6,16 @@ declare const process: {
 };
 declare function require(id: string): any;
 declare function setTimeout(fn: (...args: unknown[]) => void, ms?: number): unknown;
+declare function clearTimeout(timer: unknown): void;
+declare class URL {
+  constructor(input: string);
+  protocol: string;
+  username: string;
+  password: string;
+  search: string;
+  hash: string;
+  hostname: string;
+}
 
 declare const navigator: { product?: string } | undefined;
 declare const localStorage:

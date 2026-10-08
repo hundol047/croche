@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, radius, spacing, typography, scoreColor } from '@/constants/theme';
+import { colors, spacing, typography } from '@/constants/theme';
 import { TargetIcon } from './icons';
-import { ProgressBar } from './ProgressBar';
 import { errorTypeLabel } from '@/domain/errorTypes';
 import type { Prediction } from '@/domain/types';
 
@@ -18,7 +17,6 @@ export function PredictionCard({ prediction, compact }: { prediction: Prediction
       <Text style={styles.caption}>예상 실수 위험도</Text>
       <Text style={styles.score}>{Math.round(prediction.riskScore)} / 100</Text>
     </View>
-    <ProgressBar value={prediction.riskScore} color={scoreColor(prediction.riskScore)} segmented />
     {!compact ? <Text style={styles.reason}>{prediction.reason}</Text> : null}
     {!compact && prediction.relatedMemories.length > 0 ? <View style={styles.related}>
       <Text style={styles.caption}>함께 확인할 기록</Text>
@@ -29,12 +27,12 @@ export function PredictionCard({ prediction, compact }: { prediction: Prediction
 }
 
 const styles = StyleSheet.create({
-  panel: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, padding: spacing.xl, marginBottom: spacing.xl },
+  panel: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border,
+    paddingVertical: spacing.lg, marginBottom: spacing.xl },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   eyebrow: { ...typography.caption, color: colors.textMuted, marginLeft: spacing.sm },
   caption: { ...typography.caption, color: colors.textMuted },
-  target: { ...typography.title, color: colors.text, marginBottom: spacing.xl },
+  target: { ...typography.section, fontSize: 20, color: colors.text, marginBottom: spacing.lg },
   scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.sm },
   score: { ...typography.bodyStrong, color: colors.text, fontVariant: ['tabular-nums'] },
   reason: { ...typography.body, color: colors.text, marginTop: spacing.xl },

@@ -18,31 +18,24 @@ import type { CrocheClient } from '@/services/croche/client';
 import type { Result } from '@/utils/result';
 import { Err } from '@/utils/result';
 
-/**
- * Real Croche-backed AI service.
- *
- * ⚠️ REAL CROCHE INTEGRATION POINT ⚠️
- * The structure is complete: it builds compact prompts, selects the model tier
- * via modelPolicy, passes ONLY the pre-selected relevant memories as context,
- * calls the Croche client for JSON output, then validates with the SAME Zod
- * schemas as the Mock and applies the tone guard.
- *
- * The ONLY thing missing is a live Croche client (createCrocheClient returns
- * null until the SDK is installed + configured). When a client is present this
- * class is fully functional and the app behaves identically — just backed by a
- * real model instead of the deterministic mock.
+/** Structured-output adapter for a server-owned client. Live integration still
+ * requires an authenticated server and a verified official Croche adapter.
+ * Local assessment and durable writes guard against contradictory AI grading.
  */
 export interface RealServiceOptions {
   /** How many times to re-ask the model when its JSON fails Zod validation. */
   maxValidationRetries?: number;
+  timeoutMs?: number;
 }
 
 export class RealCrocheAIService implements CrocheAIService {
   readonly kind = 'real' as const;
   private maxRetries: number;
+  private timeoutMs: number;
 
   constructor(private client: CrocheClient, opts: RealServiceOptions = {}) {
     this.maxRetries = Math.max(0, opts.maxValidationRetries ?? 1);
+    this.timeoutMs = opts.timeoutMs ?? 15000;
   }
 
   async analyzeMistake(input: AnalyzeInput): Promise<Result<MistakeAnalysis>> {
@@ -97,6 +90,7 @@ export class RealCrocheAIService implements CrocheAIService {
           targetErrorType: input.targetErrorType,
           subject: input.subject,
           avoidTopics: input.recentTopics,
+          avoidQuestions: input.avoidQuestions ?? [],
         }),
         context: input.relevantMemories.map(memoryLine),
       },
@@ -150,12 +144,15 @@ export class RealCrocheAIService implements CrocheAIService {
     user: string;
     context: string[];
   }): Promise<Result<unknown>> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const out = await this.client.completeJson(args);
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), this.timeoutMs);
+      });
+      const out = await Promise.race([this.client.completeJson(args), deadline]);
       return { ok: true, value: out };
-    } catch (e) {
-      return Err(`AI 호출에 실패했습니다: ${(e as Error).message ?? 'unknown error'}`);
-    }
+    } catch { return Err('AI 호출에 실패했습니다. 연결 상태를 확인하고 다시 시도해주세요.'); }
+    finally { if (timer !== undefined) clearTimeout(timer); }
   }
 }
 

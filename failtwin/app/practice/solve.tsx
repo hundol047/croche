@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { ErrorState } from '@/components/ErrorState';
-import { Card } from '@/components/Card';
+import { assessAnswer } from '@/domain/answerAssessment';
 import { Button } from '@/components/Button';
 import { ConfidenceSelector } from '@/components/ConfidenceSelector';
 import { ArrowIcon } from '@/components/icons';
@@ -20,11 +20,13 @@ export default function Solve() {
   const { profile } = useApp();
   const problem = sessionStore.get('currentProblem');
 
-  const [answer, setAnswer] = useState('');
+  const saved = sessionStore.get('currentAttempt');
+  const [answer, setAnswer] = useState(saved?.userAnswer ?? '');
+  const [guidance, setGuidance] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [reasoning, setReasoning] = useState('');
-  const [confidence, setConfidence] = useState<Confidence>('medium');
+  const [reasoning, setReasoning] = useState(saved?.userReasoning ?? '');
+  const [confidence, setConfidence] = useState<Confidence>(saved?.confidence ?? 'medium');
 
   if (!problem) {
     return (
@@ -37,6 +39,9 @@ export default function Solve() {
 
   const submit = async () => {
     if (!profile || busy) return;
+    const assessment = assessAnswer(problem, answer);
+    if (assessment.verdict === 'ungradable') { setGuidance(assessment.guidance); return; }
+    setGuidance('');
     setBusy(true);
     setError(false);
     const attempt: Attempt = {
@@ -64,7 +69,7 @@ export default function Solve() {
         <Caption style={styles.context}>{problem.subject} · {problem.topic}</Caption>
       </View>
 
-      <Card>
+      <View style={styles.question}>
         <Title style={styles.qTitle}>문제</Title>
         <Text style={styles.prompt}>{problem.prompt}</Text>
         {problem.answerType === 'mcq' && problem.options ? (
@@ -75,7 +80,7 @@ export default function Solve() {
             <Caption style={styles.mcqHint}>정답을 입력란에 적어주세요 (복수 정답은 쉼표로).</Caption>
           </View>
         ) : null}
-      </Card>
+      </View>
 
       <Caption>내 답</Caption>
       <TextInput
@@ -83,10 +88,14 @@ export default function Solve() {
         placeholder={problem.answerType === 'numeric' ? '숫자를 입력' : '답을 입력'}
         placeholderTextColor={colors.textFaint}
         value={answer}
-        onChangeText={setAnswer}
+        onChangeText={(text) => { setAnswer(text); setGuidance(''); }}
         keyboardType={problem.answerType === 'numeric' ? 'numbers-and-punctuation' : 'default'}
         accessibilityLabel="답 입력"
       />
+      {guidance ? <View accessibilityLiveRegion="polite" style={styles.guidance}>
+        <Text style={styles.guidanceTitle}>판정 불가</Text>
+        <Body>{guidance}</Body><Caption>학습 기록과 Error DNA에는 반영하지 않았습니다.</Caption>
+      </View> : null}
 
       <Caption style={styles.spacer}>풀이 과정 (선택)</Caption>
       <TextInput
@@ -116,6 +125,9 @@ const styles = StyleSheet.create({
   back: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   context: { flex: 1 },
   qTitle: { ...typography.section, marginBottom: spacing.sm },
+  question: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: spacing.lg, marginBottom: spacing.xl },
+  guidance: { borderLeftWidth: 2, borderLeftColor: colors.controlBorder, paddingLeft: spacing.md, marginTop: spacing.md },
+  guidanceTitle: { ...typography.bodyStrong, color: colors.text, marginBottom: spacing.xs },
   prompt: { ...typography.body, color: colors.text, lineHeight: 24 },
   options: { marginTop: spacing.md },
   option: { ...typography.body, color: colors.text, marginBottom: 4 },

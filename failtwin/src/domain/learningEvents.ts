@@ -1,13 +1,17 @@
 import type { Repositories } from '@/storage/repositories';
 import type { Problem, Attempt, MistakeAnalysis, TrapProblem, TrapResult, MistakeRecord } from './types';
 import { applyMistake, applyCorrection, findEntry, upsertEntry } from './errorDnaEngine';
-import { checkAnswer, inferTrapErrorType } from './trapEval';
+import { inferTrapErrorType } from './trapEval';
+import { assessAnswer, UngradableAnswerError } from './answerAssessment';
 
 /** One submitted attempt = one durable event, even after reload or retry. */
 export async function recordPractice(
   repos: Repositories, problem: Problem, attempt: Attempt, analysis: MistakeAnalysis,
 ): Promise<MistakeRecord> {
   if (attempt.problemId !== problem.id) throw new Error('Problem/attempt mismatch');
+  const assessment = assessAnswer(problem, attempt.userAnswer);
+  if (assessment.verdict === 'ungradable') throw new UngradableAnswerError(assessment.guidance);
+  if (analysis.isCorrect !== (assessment.verdict === 'correct')) throw new Error('Analysis/answer mismatch');
   const userId = attempt.userId;
   const state = await repos.learning.update(userId, (s) => {
     if (s.mistakes.some((m) => m.attempt.id === attempt.id)) return s;
@@ -40,9 +44,11 @@ export async function recordPractice(
 export async function recordTrap(
   repos: Repositories, trap: TrapProblem, attempt: Attempt,
 ): Promise<TrapResult> {
+  const assessment = assessAnswer(trap, attempt.userAnswer);
+  if (assessment.verdict === 'ungradable') throw new UngradableAnswerError(assessment.guidance);
   const state = await repos.learning.update(attempt.userId, (s) => {
     if (s.traps.some((t) => t.id === attempt.id)) return s;
-    const solvedCorrectly = checkAnswer(trap, attempt.userAnswer);
+    const solvedCorrectly = assessment.verdict === 'correct';
     const actualErrorType = solvedCorrectly ? undefined : inferTrapErrorType(trap, attempt.userAnswer, attempt.userReasoning);
     const target = solvedCorrectly ? trap.targetErrorType : actualErrorType;
     const existing = target ? findEntry(s.dna, target) : undefined;

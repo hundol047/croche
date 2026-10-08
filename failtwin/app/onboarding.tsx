@@ -46,9 +46,8 @@ export default function Onboarding() {
   return (
     <Screen>
       <View style={styles.brandRow}><DnaIcon size={22} /><Text style={styles.brand}>FailTwin</Text></View>
-      <Text style={styles.title}>반복되는 실수를{ '\n' }발견해보세요</Text>
-      <Text style={styles.tagline}>AI가 당신의 실수를 먼저 예측합니다</Text>
-      <Text style={styles.support}>풀이를 남기면 Error DNA로 실수 패턴을 기록하고, 같은 약점을 새로운 문제로 연습합니다.</Text>
+      <Text style={styles.title}>학습 기록 시작하기</Text>
+      <Text style={styles.support}>풀었던 문제와 자주 놓치는 조건을 기록합니다. 이름과 공부할 과목을 알려주세요.</Text>
 
       <View style={styles.form}>
         <Text style={styles.label}>이름</Text>
@@ -80,8 +79,7 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, marginBottom: spacing.xxl },
   brand: { ...typography.section, color: colors.brand, marginLeft: spacing.sm },
-  title: { ...typography.display, color: colors.text },
-  tagline: { ...typography.caption, color: colors.textMuted, marginTop: spacing.md },
+  title: { ...typography.title, color: colors.text },
   support: { ...typography.body, color: colors.textMuted, marginTop: spacing.md },
   form: { marginVertical: spacing.xxl },
   label: { ...typography.bodyStrong, fontSize: 13, color: colors.text, marginBottom: spacing.sm },

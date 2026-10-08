@@ -96,5 +96,5 @@ export function errorTypeLabel(key: ErrorType): string {
 
 export function errorTypeDescription(key: ErrorType): string {
   if (isKnownErrorType(key)) return ERROR_TYPE_META[key].description;
-  return 'AI가 새로 발견한 실수 유형입니다.';
+  return '아직 분류되지 않은 실수 패턴입니다.';
 }

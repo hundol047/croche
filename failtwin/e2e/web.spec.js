@@ -169,7 +169,7 @@ test('judge loop: one analysis, HIT, new trap, correction, report and reload per
   await capture(page, 'trap-overcome');
   await page.getByRole('button', { name: '학습 리포트 보기', exact: true }).click();
   await expect(page.getByText('50%', { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText('1개', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('1회', { exact: true }).filter({ visible: true })).toBeVisible();
   await reloadWith(page, '학습 리포트');
   const state = await learning(page);
   expect(state.dna.find((d) => d.errorType === 'condition_omission').score).toBe(91);
@@ -235,4 +235,99 @@ test('blocked storage and a failed analysis save offer recovery without duplicat
   await page.getByRole('button', { name: '다시 시도', exact: true }).click();
   await expect(page.getByText('83 → 100', { exact: true }).filter({ visible: true })).toBeVisible();
   expect((await learning(page)).mistakes).toHaveLength(1);
+});
+
+test('equivalent exponential answer is correct; ungradable input never creates DNA or events', async ({ page }) => {
+  await demo(page);
+  const before = (await learning(page)).dna;
+  await page.getByTestId('go-practice').filter({ visible: true }).click();
+  await page.getByRole('button', { name: '1계 선형 미분방정식 문제 풀기', exact: true }).click();
+  for (const answer of ['3e^(-2x)+0', '3e^(-2x);globalThis.attack=true']) {
+    await page.getByLabel('답 입력', { exact: true }).fill(answer);
+    await page.getByTestId('submit-answer').filter({ visible: true }).click();
+    await expect(page.getByText('판정 불가', { exact: true }).filter({ visible: true })).toBeVisible();
+    expect((await learning(page)).mistakes).toHaveLength(0);
+    expect((await learning(page)).dna).toEqual(before);
+  }
+  expect(await page.evaluate(() => window.attack)).toBe(undefined);
+  await capture(page, 'ungradable-practice');
+  await page.reload();
+  await page.getByLabel('답 입력', { exact: true }).fill('3e^(-2x)');
+  await page.getByTestId('submit-answer').filter({ visible: true }).click();
+  await reloadWith(page, '정답입니다!');
+  expect((await learning(page)).mistakes).toHaveLength(1);
+  expect((await learning(page)).dna).toEqual(before);
+  await capture(page, 'equivalent-answer');
+});
+
+test('new questions vary by type and survive reload in all three subjects', async ({ page }) => {
+  await demo(page);
+  const cases = [
+    { subject: '공업수학', answers: ['[-1,1]', '3e^(-2x)', '정의되지 않음'] },
+    { subject: '일반물리', answers: ['24', '9', '10'] },
+    { subject: 'Python 프로그래밍', answers: ['18', '5', '4'] },
+  ];
+  for (const item of cases) {
+    const prompts = [];
+    for (const answer of item.answers) {
+      await page.goto('/practice');
+      await page.getByRole('button', { name: item.subject, exact: true }).click();
+      await page.getByTestId('generate-problem').filter({ visible: true }).click();
+      await page.getByLabel('답 입력', { exact: true }).waitFor();
+      const prompt = await page.evaluate(() => JSON.parse(localStorage.getItem('ft:demo-user:session')).currentProblem.prompt);
+      expect(prompts.includes(prompt)).toBe(false); prompts.push(prompt);
+      await page.reload();
+      await page.getByLabel('답 입력', { exact: true }).fill(answer);
+      await page.getByTestId('submit-answer').filter({ visible: true }).click();
+      await expect(page.getByText('정답입니다!', { exact: true }).filter({ visible: true })).toBeVisible();
+    }
+  }
+  const state = await learning(page);
+  expect(state.issued.filter((q) => q.kind === 'practice')).toHaveLength(9);
+  expect(state.mistakes).toHaveLength(9);
+});
+
+test('finite practice pool reports exhaustion and keeps other subjects available', async ({ page }) => {
+  await demo(page);
+  for (let i = 0; i < 18; i += 1) {
+    await page.goto('/practice');
+    await page.getByTestId('generate-problem').filter({ visible: true }).click();
+    await page.getByLabel('답 입력', { exact: true }).waitFor();
+  }
+  await page.goto('/practice');
+  await expect(page.getByText('준비된 추가 문제 · 남은 0개', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByTestId('generate-problem').filter({ visible: true })).toHaveAttribute('aria-disabled', 'true');
+  await capture(page, 'practice-exhausted');
+  await page.reload();
+  await expect(page.getByTestId('generate-problem').filter({ visible: true })).toHaveAttribute('aria-disabled', 'true');
+  expect((await learning(page)).mistakes).toHaveLength(0);
+  await page.getByRole('button', { name: '일반물리', exact: true }).click();
+  await expect(page.getByText('준비된 추가 문제 · 남은 18개', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByTestId('generate-problem').filter({ visible: true })).toBeEnabled();
+});
+
+test('ungradable Trap stays neutral; reload, HIT, correction and exhaustion stay consistent', async ({ page }) => {
+  await demo(page);
+  const before = (await learning(page)).dna;
+  await page.getByTestId('go-trap').filter({ visible: true }).click();
+  await page.getByTestId('trap-start').filter({ visible: true }).click();
+  await page.getByLabel('Trap 답 입력', { exact: true }).fill('(2,5);invalid');
+  await page.getByTestId('trap-submit').filter({ visible: true }).click();
+  await expect(page.getByText('판정 불가', { exact: true }).filter({ visible: true })).toBeVisible();
+  expect((await learning(page)).dna).toEqual(before);
+  expect((await learning(page)).traps).toHaveLength(0);
+  await capture(page, 'ungradable-trap');
+  await page.reload();
+  await page.getByLabel('Trap 답 입력', { exact: true }).fill('[2,5]');
+  await page.getByTestId('trap-submit').filter({ visible: true }).click();
+  await expect(page.getByText('예측 적중 (Prediction HIT)', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: '다시 도전', exact: true }).click();
+  await page.getByLabel('Trap 답 입력', { exact: true }).fill('[-3,3]');
+  await page.getByTestId('trap-submit').filter({ visible: true }).click();
+  await expect(page.getByText('Trap 극복', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: '다시 도전', exact: true }).click();
+  await expect(page.getByText('이 패턴의 준비된 문제를 모두 열어봤습니다. 기본 문제를 연습하거나 다른 실수 패턴을 선택하세요.', { exact: true }).filter({ visible: true })).toBeVisible();
+  expect((await learning(page)).traps).toHaveLength(2);
+  expect((await learning(page)).issued.filter((q) => q.kind === 'trap')).toHaveLength(2);
+  await capture(page, 'trap-exhausted');
 });

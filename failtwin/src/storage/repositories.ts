@@ -1,5 +1,6 @@
 import type { KVStore } from './kv';
 import { getKV } from './kv';
+import type { IssuedQuestion } from '@/domain/questionIssuance';
 import type {
   UserProfile,
   ErrorDnaEntry,
@@ -65,6 +66,7 @@ export class ProfileRepo {
 }
 
 export interface LearningState {
+  issued?: IssuedQuestion[];
   dna: ErrorDnaEntry[];
   mistakes: MistakeRecord[];
   traps: TrapResult[];

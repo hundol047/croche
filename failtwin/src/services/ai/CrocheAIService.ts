@@ -32,6 +32,8 @@ export interface PredictInput {
 }
 
 export interface TrapInput {
+  /** Previously issued question text, including abandoned questions. */
+  avoidQuestions?: string[];
   /** The strongest error type to target. */
   targetErrorType: ErrorType;
   subject: Subject;
@@ -41,6 +43,7 @@ export interface TrapInput {
 }
 
 export interface GenProblemInput {
+  avoidPrompts?: string[];
   subject: Subject;
   topic?: string;
   difficulty?: 'easy' | 'medium' | 'hard';

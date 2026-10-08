@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, typography } from '@/constants/theme';
-import { DnaIcon } from './icons';
 import { Button } from './Button';
 
 interface EmptyStateProps {
@@ -18,9 +17,6 @@ interface EmptyStateProps {
 export function EmptyState({ title, description, ctaLabel, onCta }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconWrap}>
-        <DnaIcon size={24} color={colors.brand} />
-      </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.desc}>{description}</Text>
       {ctaLabel && onCta ? (
@@ -32,9 +28,6 @@ export function EmptyState({ title, description, ctaLabel, onCta }: EmptyStatePr
 
 const styles = StyleSheet.create({
   container: { alignItems: 'flex-start', paddingVertical: spacing.md },
-  iconWrap: {
-    marginBottom: spacing.md,
-  },
   title: { ...typography.section, color: colors.text, marginBottom: spacing.sm },
   desc: {
     ...typography.body,

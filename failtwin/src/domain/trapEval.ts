@@ -1,30 +1,12 @@
 import type { TrapProblem, ErrorType } from './types';
+import { assessAnswer } from './answerAssessment';
 
 function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, '');
 }
 
-/** Accept complete numeric literals, never partial answers such as "20+1". */
-function numericValue(s: string): number | null {
-  const text = s.trim();
-  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(text)) return null;
-  const n = Number(text);
-  return Number.isFinite(n) ? n : null;
-}
-
 export function checkAnswer(trap: Pick<TrapProblem, 'answerType' | 'correctAnswer'>, answer: string): boolean {
-  if (trap.answerType === 'numeric') {
-    const a = numericValue(answer);
-    const c = numericValue(trap.correctAnswer);
-    return a !== null && c !== null && Math.abs(a - c) < 1e-6;
-  }
-  if (normalize(answer) === normalize(trap.correctAnswer)) return true;
-  if (trap.answerType === 'mcq') {
-    const a = new Set(answer.split(/[,/\s]+/).map(normalize).filter(Boolean));
-    const c = new Set(trap.correctAnswer.split(/[,/\s]+/).map(normalize).filter(Boolean));
-    return a.size === c.size && [...c].every((x) => a.has(x));
-  }
-  return false;
+  return assessAnswer(trap, answer).verdict === 'correct';
 }
 
 /** Only claim a HIT with evidence; a wrong answer alone proves no error type. */

@@ -1,6 +1,6 @@
 import { goToMain } from '@/utils/navigation';
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Animated, Pressable, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
@@ -19,6 +19,8 @@ import { useErrorDNA } from '@/state/useErrorDNA';
 import { buildMemoryContext } from '@/domain/memorySelect';
 import { errorTypeLabel } from '@/domain/errorTypes';
 import { recordTrap } from '@/domain/learningEvents';
+import { assessAnswer, UngradableAnswerError } from '@/domain/answerAssessment';
+import { issueTrap } from '@/domain/questionIssuance';
 import { sessionStore } from '@/state/sessionStore';
 import { uid } from '@/utils/id';
 import { nowIso } from '@/utils/date';
@@ -44,6 +46,8 @@ export default function Trap() {
   const [result, setResult] = useState<StoredTrapResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [guidance, setGuidance] = useState('');
+  const [exhausted, setExhausted] = useState(false);
   const submitting = useRef(false);
   const [savedAttempt] = useState(canResume ? sessionStore.get('trapAttempt') : undefined);
 
@@ -55,34 +59,44 @@ export default function Trap() {
       setResult(restored);
       setPhase('result');
       await refresh();
-    }).catch(() => { if (active) setSaveError(true); });
+    }).catch((e) => {
+      if (!active) return;
+      if (e instanceof UngradableAnswerError) {
+        setGuidance(e.guidance);
+        void sessionStore.set('trapAttempt', undefined).catch(() => setSaveError(true));
+      } else setSaveError(true);
+    });
     return () => { active = false; };
     // Restore only the attempt captured when this route mounted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedAttempt, repos]);
 
   const generate = async () => {
+    if (!profile) return;
     setPhase('generating');
     setSaveError(false);
+    setGuidance(''); setExhausted(false);
     try {
       const subject: Subject = (targetEntry?.subject as Subject) ?? '공업수학';
-      const res = await ai.generateTrapProblem({
+      const next = await issueTrap(repos, ai, profile.userId, {
         targetErrorType: target, subject,
         recentTopics: [...dna.slice(0, 3).map((e) => e.topic), ...trapHistory.map((t) => t.topic ?? ''), ...(trap ? [trap.topic] : [])],
         relevantMemories: buildMemoryContext(dna, { subject, topic: targetEntry?.topic ?? '' }),
       });
-      if (!res.ok) { setPhase('error'); return; }
-      await sessionStore.startTrap(res.value, uid('trapq'));
-      setTrap(res.value);
+      await sessionStore.startTrap(next, uid('trapq'));
+      setTrap(next);
       setResult(null);
       setAnswer('');
       setReasoning('');
       setPhase('solving');
-    } catch { setPhase('error'); }
+    } catch (e) { setExhausted(e instanceof Error && e.message.startsWith('EXHAUSTED:')); setPhase('error'); }
   };
 
   const submit = async () => {
     if (!trap || !profile || submitting.current) return;
+    const assessment = assessAnswer(trap, answer);
+    if (assessment.verdict === 'ungradable') { setGuidance(assessment.guidance); return; }
+    setGuidance('');
     submitting.current = true;
     setBusy(true);
     setSaveError(false);
@@ -110,16 +124,15 @@ export default function Trap() {
         </Pressable>
         <Caption>실수 패턴 집중 훈련</Caption>
       </View>
-      <Title>Trap Mode</Title>
+      <Title>실수 패턴 훈련</Title>
       {phase === 'intro' ? <>
         <TrapCard targetErrorType={target}>
-          <Body style={styles.trapIntro}>같은 실수 유형을 노리는 새로운 문제를 풀어보세요. 답을 제출하면 패턴을 확인하고 기록에 반영합니다.</Body>
+          <Body style={styles.trapIntro}>다른 문제에서도 이 조건을 확인할 수 있는지 연습합니다. 결과는 기존 학습 기록에 이어서 남깁니다.</Body>
         </TrapCard>
-        <Body muted style={styles.introNote}>나를 틀리게 만드는 문제로, 시험 전에 반복 패턴을 확인합니다.</Body>
         <Button label="집중 훈련 시작" variant="trap" onPress={generate} testID="trap-start" />
       </> : null}
-      {phase === 'generating' ? <LoadingState message="맞춤 문제 준비 중" /> : null}
-      {phase === 'error' ? <><ErrorState message="문제 생성이나 저장에 실패했어요." onRetry={generate} /><ActionRow label="홈으로" onPress={() => goToMain(router)} quiet /></> : null}
+      {phase === 'generating' ? <LoadingState message="연습 문제 준비 중" /> : null}
+      {phase === 'error' ? <>{exhausted ? <Body style={styles.introNote}>이 패턴의 준비된 문제를 모두 열어봤습니다. 기본 문제를 연습하거나 다른 실수 패턴을 선택하세요.</Body> : <ErrorState message="문제 생성이나 저장에 실패했어요." onRetry={generate} />}<ActionRow label="기본 문제 풀기" onPress={() => router.navigate('/practice')} /><ActionRow label="홈으로" onPress={() => goToMain(router)} quiet /></> : null}
       {saveError ? <ErrorState message="결과를 저장하지 못했어요. 다시 시도해주세요." onRetry={submit} /> : null}
 
       {phase === 'solving' && trap ? <>
@@ -133,7 +146,8 @@ export default function Trap() {
         </Card>
         <Caption>내 답</Caption>
         <TextInput style={styles.input} placeholder="답을 입력" placeholderTextColor={colors.textFaint}
-          value={answer} onChangeText={setAnswer} accessibilityLabel="Trap 답 입력" />
+          value={answer} onChangeText={(text) => { setAnswer(text); setGuidance(''); }} accessibilityLabel="Trap 답 입력" />
+        {guidance ? <View accessibilityLiveRegion="polite" style={styles.spacer}><Text style={styles.pattern}>판정 불가</Text><Body>{guidance}</Body><Caption>HIT와 Error DNA에는 반영하지 않았습니다.</Caption></View> : null}
         <Caption style={styles.spacer}>풀이 과정 (선택)</Caption>
         <TextInput style={[styles.input, styles.multiline]} placeholder="어떤 조건을 확인했는지 함께 적어주세요."
           placeholderTextColor={colors.textFaint} value={reasoning} onChangeText={setReasoning} multiline accessibilityLabel="Trap 풀이 과정 입력" />
@@ -152,19 +166,15 @@ function TrapResult({ trap, result, onRetry, onHome, onReport }: {
   trap: TrapProblem; result: StoredTrapResult; onRetry: () => void; onHome: () => void; onReport: () => void;
 }) {
   const { solvedCorrectly, predictionHit } = result;
-  const opacity = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== 'web' }).start();
-  }, [opacity]);
   const accent = solvedCorrectly ? colors.success : predictionHit ? colors.warning : colors.brand;
   const bannerTitle = solvedCorrectly ? 'Trap 극복' : predictionHit ? '예측 적중 (Prediction HIT)' : '함께 교정해봐요';
 
   return <>
-    <Animated.View style={[styles.resultBanner, { opacity, borderLeftColor: accent,
+    <View style={[styles.resultBanner, { opacity: 1, borderLeftColor: accent,
       backgroundColor: solvedCorrectly ? colors.successTint : colors.brandTint }]}>
       {solvedCorrectly ? <CheckIcon size={22} color={accent} /> : <TargetIcon size={22} color={accent} />}
       <Text style={styles.resultTitle}>{bannerTitle}</Text>
-    </Animated.View>
+    </View>
 
     <Card>
       {result.beforeScore != null && result.afterScore != null ? <View style={styles.dna}>
@@ -201,7 +211,7 @@ function TrapResult({ trap, result, onRetry, onHome, onReport }: {
 const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   back: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
-  trapIntro: { color: colors.onDarkMuted },
+  trapIntro: { color: colors.textMuted },
   introNote: { marginBottom: spacing.xl },
   targetTag: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.lg },
   targetTagText: { ...typography.caption, color: colors.brand, marginLeft: spacing.sm },

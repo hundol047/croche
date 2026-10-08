@@ -1,6 +1,6 @@
 # FailTwin
 
-> **AI가 당신의 실수를 먼저 예측합니다.**
+> **풀이를 기록하고, 같은 약점을 다른 문제로 연습합니다.**
 > SNU × Croche AI Hackathon 2026 출품작.
 
 FailTwin은 **어떻게 반복해서 틀리는지**를 학습합니다. 개념 설명과 정답 교정을 넘어,
@@ -62,6 +62,7 @@ Playwright는 375 / 430 / 768 / 1440px에서 Chromium을 실제 실행합니다.
 신규 온보딩, 세 과목의 기존·생성 문제, 복수 정답, 분석의 중복 저장 방지,
 정확한 심사 데모, HIT와 중립 피드백, 새 Trap의 교정, 리포트 집계, 깊은 경로 복원,
 새로고침·프로필 분리·데모 초기화와 가로 넘침을 검사합니다.
+동등 수식·판정 불가 입력·세 과목의 문제 다양성·유한 문제 소진까지 총 36개 시나리오를 실행합니다.
 브라우저 오류·새 경고는 실패로 처리하며 SDK 51 React Navigation의 알려진
 `pointerEvents` 폐기 예정 경고만 기록하고 구분합니다.
 리포트·스크린샷·실패 trace는 ignored `playwright-report/`, `test-results/`에 저장합니다.
@@ -94,20 +95,21 @@ SPA 깊은 경로는 `index.html`로 fallback해야 합니다.
 
 ## Croche 상태와 구조
 
-**Real Croche: NOT CONNECTED.** 이 작업은 실제 SDK·엔드포인트·인증·모델 ID를 만들거나
-실제 연결을 시도하지 않습니다. 기본 런타임은 `MockCrocheAIService`이고 UI 배지는 이 모드를 표시합니다.
+**Real Croche: NOT CONNECTED.** 공식 SDK·문서·서버 설정은 아직 제공되지 않았습니다.
+서버 프록시 클라이언트와 타임아웃·스키마 검증을 준비했고, 공급자 키는 Expo 앱에서 읽지 않습니다.
+[서버 계약과 필요한 정보](../docs/AI_INTEGRATION.md)를 확인하세요. 기본 런타임은 Mock이며 화면에 명시합니다.
 `mode=real`인데 client가 없으면 Mock으로 fallback하고 연결 불가 상태를 명시합니다.
 
 ```
 src/services/ai/
   CrocheAIService.ts         # 분석 / 예측 / Trap / 연습 문제 인터페이스
-  MockCrocheAIService.ts     # 결정적 분류와 유한 템플릿, 로컬 데모 백엔드
-  RealCrocheAIService.ts     # future client 어댑터, fake client로만 검증
+  MockCrocheAIService.ts     # 결정적 분류와 과목당 18개 추가 문제, 로컬 데모 백엔드
+  RealCrocheAIService.ts     # 서버 클라이언트 어댑터, fake client로 검증
   modelPolicy.ts            # 작업별 모델 티어 정책
   tools.ts                  # Zod로 검증하는 tool abstraction
   toneGuard.ts
 src/services/croche/
-  client.ts                 # 공식 client 생성 경계 (TODO)
+  client.ts                 # 사용자 서버 프록시 계약, 공식 서버 어댑터는 미구현
   memoryStore.ts             # 관련 기억 조회 추상화
 ```
 
@@ -124,3 +126,10 @@ src/services/croche/
 설계 문서는 [`.kiro/specs/failtwin/`](../.kiro/specs/failtwin/),
 독립 검증 하네스는 [`verify/README.md`](verify/README.md)를 참고하세요.
 `verify/`의 ambient 타입·Zod shim은 오프라인 검증에만 쓰며 실제 앱 typecheck와 bundle에서 제외합니다.
+
+## 채점과 문제 다양성
+
+정답·오답·판정 불가를 구분하고 지원 밖 표기를 DNA와 HIT에 반영하지 않습니다.
+`3e^(-2x)`와 `3e^{-2x}`는 같은 답으로 처리합니다. 일반 CAS가 아니며 지원 범위는
+[채점 문서](../docs/GRADING.md)에 명시했습니다.
+추가 문제 총 54개와 Trap의 출제 이력을 사용자별로 저장해 새로고침 후 중복을 피하고 소진을 안내합니다.

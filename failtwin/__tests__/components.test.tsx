@@ -71,6 +71,8 @@ describe('component rendering', () => {
     expect(renderer.create(<ModeBadge status="mock" />).toJSON()).toBeTruthy();
     expect(renderer.create(<ModeBadge status="real" />).toJSON()).toBeTruthy();
     expect(renderer.create(<ModeBadge status="real-unavailable" />).toJSON()).toBeTruthy();
+    expect(renderer.create(<ModeBadge status="real-pending" />).toJSON()).toBeTruthy();
+    expect(renderer.create(<ModeBadge status="real-error" />).toJSON()).toBeTruthy();
   });
 
   it('renders EmptyState with a CTA', () => {

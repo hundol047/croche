@@ -23,10 +23,11 @@ import { errorTypeLabel, errorTypeDescription } from '@/domain/errorTypes';
 import { predictFromDna } from '@/domain/prediction';
 import { sanitizeStrings } from './toneGuard';
 import { clamp, round1 } from '@/utils/clamp';
-import { seededId } from '@/utils/id';
 import type { Result } from '@/utils/result';
 import { TRAP_TEMPLATES } from './trapTemplates';
-import { checkAnswer } from '@/domain/trapEval';
+import { assessAnswer } from '@/domain/answerAssessment';
+import { practiceVariants } from '@/content/practiceVariants';
+import { Err } from '@/utils/result';
 
 /**
  * Fully-working, DETERMINISTIC mock of the Croche AI service. Seedable so demo
@@ -46,12 +47,11 @@ export interface MockOptions {
 export class MockCrocheAIService implements CrocheAIService {
   readonly kind = 'mock' as const;
   private latencyMs: number;
-  private seed: number;
   private trapTurns = new Map<string, number>();
+  private practiceTurns = new Map<Subject, number>();
 
   constructor(opts: MockOptions = {}) {
     this.latencyMs = opts.latencyMs ?? 450;
-    this.seed = opts.seed ?? 1;
   }
 
   private async delay(): Promise<void> {
@@ -61,13 +61,15 @@ export class MockCrocheAIService implements CrocheAIService {
   async analyzeMistake(input: AnalyzeInput): Promise<Result<MistakeAnalysis>> {
     await this.delay();
     const { problem, attempt } = input;
-    const isCorrect = checkAnswer(problem, attempt.userAnswer);
+    const assessment = assessAnswer(problem, attempt.userAnswer);
+    if (assessment.verdict === 'ungradable') return Err(assessment.guidance);
+    const isCorrect = assessment.verdict === 'correct';
 
     if (isCorrect) {
       const analysis: MistakeAnalysis = {
         isCorrect: true,
         reason: `정답입니다. ${problem.topic}의 핵심을 정확히 적용했어요.`,
-        evidence: [`제출한 답 "${attempt.userAnswer}"이(가) 정답과 일치합니다.`],
+        evidence: [`제출한 답: ${attempt.userAnswer}`, `정답 근거: ${problem.explanation}`],
         correctionStrategy:
           '지금처럼 답을 확정하기 전 핵심 조건을 한 번 더 확인하는 습관을 유지하세요.',
         severity: 1,
@@ -133,8 +135,10 @@ export class MockCrocheAIService implements CrocheAIService {
     const templates = TRAP_TEMPLATES[input.targetErrorType] ?? TRAP_TEMPLATES['verification_omission'];
     const list = templates.filter((t) => t.subject === input.subject);
     const matching = list.length > 0 ? list : templates;
-    const unseen = matching.filter((t) => !input.recentTopics.includes(t.topic));
-    const pool = unseen.length ? unseen : matching;
+    const available = matching.filter((t) => !(input.avoidQuestions ?? []).includes(t.question));
+    if (!available.length) return Err('EXHAUSTED: 이 패턴의 준비된 문제를 모두 열어봤습니다. 다른 패턴이나 기본 문제를 선택해주세요.');
+    const unseen = available.filter((t) => !input.recentTopics.includes(t.topic));
+    const pool = unseen.length ? unseen : available;
     // Rotation is independent of unrelated generateProblem calls.
     const key = `${input.targetErrorType}:${input.subject}`;
     const turn = this.trapTurns.get(key) ?? 0;
@@ -160,22 +164,12 @@ export class MockCrocheAIService implements CrocheAIService {
 
   async generateProblem(input: GenProblemInput): Promise<Result<Problem>> {
     await this.delay();
-    const topic = input.topic ?? defaultTopic(input.subject);
-    const spec = GENERATED[input.subject];
-    const problem: Problem = {
-      id: seededId('ai', `${input.subject}-${this.seed++}`),
-      subject: input.subject,
-      topic,
-      prompt: spec.prompt,
-      answerType: spec.answerType,
-      options: spec.options,
-      correctAnswer: spec.correctAnswer,
-      explanation: spec.explanation,
-      difficulty: input.difficulty ?? 'medium',
-      source: 'ai',
-      targetErrorType: spec.targetErrorType,
-    };
-    return validateProblem(problem);
+    const available = practiceVariants(input.subject).filter((p) => !(input.avoidPrompts ?? []).includes(p.prompt));
+    if (!available.length) return Err('EXHAUSTED: 이 과목의 추가 문제를 모두 열어봤습니다. 기본 문제를 다시 연습해주세요.');
+    const turn = this.practiceTurns.get(input.subject) ?? 0;
+    this.practiceTurns.set(input.subject, turn + 1);
+    const next = available[input.avoidPrompts ? 0 : turn % available.length]!;
+    return validateProblem(next);
   }
 }
 
@@ -211,11 +205,11 @@ function buildReason(problem: Problem, errorType: ErrorType, answer: string): st
     case 'condition_omission':
       return `주어진 정의역이나 전제조건을 모두 반영하지 않아 "${answer}"로 답했어요. 정답 해설과 조건을 하나씩 비교해보세요.`;
     case 'edge_case_omission':
-      return `접근 방식과 중간 계산은 올바르지만, 끝점·경계값 검토를 생략해 "${answer}"로 답했습니다. ${label}이(가) 결과를 바꾼 지점입니다.`;
+      return `답 "${answer}"가 정답의 끝점 조건과 다릅니다. 끝점·경계값을 각각 확인해보세요.`;
     case 'unit_error':
-      return `계산 자체는 맞지만 단위 변환을 반영하지 않아 "${answer}"가 되었습니다. ${label}로 분류됩니다.`;
+      return `답 "${answer}"가 요구 단위의 정답과 다릅니다. 단위 변환을 확인해보세요.`;
     case 'sign_error':
-      return `풀이 흐름은 맞으나 부호 처리에서 어긋나 "${answer}"가 나왔습니다. ${label}입니다.`;
+      return `답 "${answer}"의 계수나 부호가 정답과 다릅니다. 해설과 각 항을 비교해보세요.`;
     case 'rushed_reasoning':
       return `충분히 검토하기 전에 답을 빠르게 확정하면서 "${answer}"로 적었습니다. ${label} 패턴입니다.`;
     case 'concept_confusion':
@@ -226,7 +220,7 @@ function buildReason(problem: Problem, errorType: ErrorType, answer: string): st
 }
 
 function buildEvidence(problem: Problem, answer: string, reasoning?: string): string[] {
-  const ev = [`제출한 답 "${answer}"이(가) 정답 "${problem.correctAnswer}"과(와) 다릅니다.`];
+  const ev = [`제출한 답: ${answer}`, `정답: ${problem.correctAnswer}`];
   if (reasoning && reasoning.trim().length > 0) {
     ev.push(`작성한 풀이: "${reasoning.trim().slice(0, 160)}"`);
   }
@@ -252,33 +246,3 @@ function buildCorrection(errorType: ErrorType): string {
       return '중간 계산 결과를 역으로 대입해 검산하는 습관을 들이세요.';
   }
 }
-
-function defaultTopic(subject: Subject): string {
-  if (subject === '공업수학') return '급수의 수렴구간';
-  if (subject === '일반물리') return '등가속도 운동';
-  return '반복문 경계';
-}
-
-const GENERATED: Record<Subject, Omit<Problem, 'id' | 'subject' | 'topic' | 'source' | 'difficulty'>> = {
-  '공업수학': {
-    prompt: '멱급수 Σ (xⁿ / n²) (n=1→∞)의 수렴구간을 끝점 포함 여부까지 구하시오.',
-    answerType: 'text',
-    correctAnswer: '[-1,1]',
-    explanation: 'R=1. x=±1에서 Σ1/n² 수렴. 따라서 양 끝점 포함 [-1,1].',
-    targetErrorType: 'edge_case_omission',
-  },
-  '일반물리': {
-    prompt: '정지 상태에서 3 m/s²로 가속하는 물체가 4초 후 이동한 거리는? (숫자만)',
-    answerType: 'numeric',
-    correctAnswer: '24',
-    explanation: 's = ½·3·4² = 24 m.',
-    targetErrorType: 'calculation_error',
-  },
-  'Python 프로그래밍': {
-    prompt: 'range(0, 10, 3)이 생성하는 값들의 합은? (숫자만)',
-    answerType: 'numeric',
-    correctAnswer: '18',
-    explanation: '0,3,6,9 → 합 18 (10 미포함).',
-    targetErrorType: 'edge_case_omission',
-  },
-};

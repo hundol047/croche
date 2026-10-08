@@ -1,6 +1,6 @@
 # croche — FailTwin
 
-> **AI가 당신의 실수를 먼저 예측합니다.**
+> **풀이를 기록하고, 같은 약점을 다른 문제로 연습합니다.**
 > SNU × Croche AI Hackathon 2026
 
 FailTwin은 **어떻게 반복해서 틀리는지**를 Error DNA로 기억하고,
@@ -21,6 +21,8 @@ npm run web -- --offline
 
 - [실행·기술·테스트·저장 구조](failtwin/README.md)
 - [검증 결과와 제약](docs/QA.md)
+- [채점 범위와 반복 출제](docs/GRADING.md)
+- [실제 AI 연결 준비와 남은 작업](docs/AI_INTEGRATION.md)
 - [디자인 기준과 화면 비교](docs/DESIGN.md)
 - [기존 PR #1](https://github.com/hundol047/croche/pull/1)
 - [설계 문서](.kiro/specs/failtwin/)
